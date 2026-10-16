@@ -1,0 +1,39 @@
+{
+  "name": "chat-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WhatsApp-like messaging platform monorepo (Web, Mobile, Backend)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "web:dev": "npm --workspace=apps/web run dev",
+    "web:build": "npm --workspace=apps/web run build",
+    "mobile:start": "npm --workspace=apps/mobile run start",
+    "backend:build": "docker run --rm -v $(pwd)/backend:/app -w /app -v $HOME/.m2:/root/.m2 maven:3.9-eclipse-temurin-21 mvn clean package -DskipTests",
+    "backend:test": "docker run --rm -v $(pwd)/backend:/app -w /app -v $HOME/.m2:/root/.m2 maven:3.9-eclipse-temurin-21 mvn test",
+    "backend:run": "java -jar backend/target/chat-backend-1.0.0.jar"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "metro": "^0.81.5",
+    "metro-cache": "^0.81.5",
+    "metro-cache-key": "^0.81.5",
+    "metro-config": "^0.81.5",
+    "metro-core": "^0.81.5",
+    "metro-resolver": "^0.81.5",
+    "metro-source-map": "^0.81.5",
+    "metro-transform-worker": "^0.81.5",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "react-dom": "18.3.1",
+    "react-native-web": "~0.19.13"
+  },
+  "overrides": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
+  }
+}
