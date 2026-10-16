@@ -1,0 +1,188 @@
+import React, { useState } from 'react';
+import { User, Conversation } from '@chat/shared-types';
+import {
+  MessageSquarePlus,
+  Search,
+  LogOut,
+  Sun,
+  Moon,
+  Check,
+  CheckCheck,
+  Users
+} from 'lucide-react';
+
+interface ChatSidebarProps {
+  currentUser: User;
+  conversations: Conversation[];
+  activeConversationId: string | null;
+  onSelectConversation: (id: string) => void;
+  onOpenNewChat: () => void;
+  onLogout: () => void;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
+  isMobileOpen: boolean;
+}
+
+export const ChatSidebar: React.FC<ChatSidebarProps> = ({
+  currentUser,
+  conversations,
+  activeConversationId,
+  onSelectConversation,
+  onOpenNewChat,
+  onLogout,
+  theme,
+  onToggleTheme,
+  isMobileOpen
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredConversations = conversations.filter((c) => {
+    const title = getConversationTitle(c, currentUser.id).toLowerCase();
+    const query = searchQuery.toLowerCase();
+    return title.includes(query);
+  });
+
+  function getConversationTitle(c: Conversation, currentUserId: string): string {
+    if (c.type === 'GROUP' && c.title) return c.title;
+    const otherMember = c.members.find((m) => m.userId !== currentUserId);
+    return otherMember?.user?.displayName || otherMember?.user?.username || 'Chat';
+  }
+
+  function getOtherMember(c: Conversation, currentUserId: string) {
+    if (c.type === 'GROUP') return null;
+    return c.members.find((m) => m.userId !== currentUserId);
+  }
+
+  function formatTime(isoStr?: string): string {
+    if (!isoStr) return '';
+    const date = new Date(isoStr);
+    const now = new Date();
+    if (date.toDateString() === now.toDateString()) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function renderReceipt(lastMsg: Conversation['lastMessage']) {
+    if (!lastMsg || lastMsg.senderId !== currentUser.id) return null;
+    const isRead = lastMsg.receipts?.some((r) => r.readAt != null);
+    const isDelivered = lastMsg.receipts?.some((r) => r.deliveredAt != null);
+
+    if (isRead) {
+      return <CheckCheck size={15} className="receipt-icon read" />;
+    }
+    if (isDelivered) {
+      return <CheckCheck size={15} className="receipt-icon delivered" />;
+    }
+    return <Check size={15} className="receipt-icon sent" />;
+  }
+
+  return (
+    <aside className={`sidebar ${!isMobileOpen ? 'collapsed' : ''}`}>
+      {/* Header */}
+      <div className="sidebar-header">
+        <div className="sidebar-user" title={currentUser.displayName}>
+          <div className="avatar online">
+            {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{currentUser.displayName}</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{currentUser.username}</span>
+          </div>
+        </div>
+
+        <div className="sidebar-actions">
+          <button className="icon-btn" onClick={onOpenNewChat} title="New Chat or Group" aria-label="New Chat">
+            <MessageSquarePlus size={20} />
+          </button>
+          <button className="icon-btn" onClick={onToggleTheme} title="Toggle Theme" aria-label="Toggle Theme">
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <button className="icon-btn" onClick={onLogout} title="Sign Out" aria-label="Sign Out">
+            <LogOut size={19} />
+          </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="sidebar-search">
+        <div className="search-input-wrapper">
+          <Search size={18} color="var(--text-muted)" />
+          <input
+            type="text"
+            placeholder="Search or start new chat"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Conversation List */}
+      <div className="conversation-list">
+        {filteredConversations.length === 0 ? (
+          <div style={{
+            padding: '32px 16px',
+            textAlign: 'center',
+            color: 'var(--text-secondary)',
+            fontSize: '0.9rem'
+          }}>
+            {searchQuery ? 'No chats found matching your search.' : (
+              <div>
+                <p>No conversations yet.</p>
+                <button
+                  className="btn-primary"
+                  style={{ marginTop: '12px', padding: '8px 16px', fontSize: '0.85rem' }}
+                  onClick={onOpenNewChat}
+                >
+                  Start a Chat
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          filteredConversations.map((conv) => {
+            const title = getConversationTitle(conv, currentUser.id);
+            const other = getOtherMember(conv, currentUser.id);
+            const isOnline = other?.user?.isOnline;
+            const isActive = conv.id === activeConversationId;
+            const unread = conv.unreadCount || 0;
+
+            return (
+              <div
+                key={conv.id}
+                className={`conversation-item ${isActive ? 'active' : ''}`}
+                onClick={() => onSelectConversation(conv.id)}
+              >
+                <div className={`avatar ${isOnline ? 'online' : ''}`}>
+                  {conv.type === 'GROUP' ? <Users size={20} /> : title.charAt(0).toUpperCase()}
+                </div>
+
+                <div className="conversation-content">
+                  <div className="conversation-row">
+                    <span className="conversation-title">{title}</span>
+                    <span className="conversation-time">
+                      {formatTime(conv.lastMessage?.createdAt || conv.updatedAt)}
+                    </span>
+                  </div>
+
+                  <div className="conversation-subtitle">
+                    <div className="last-message-snippet">
+                      {renderReceipt(conv.lastMessage)}
+                      <span>
+                        {conv.lastMessage ? conv.lastMessage.content : 'No messages yet'}
+                      </span>
+                    </div>
+
+                    {unread > 0 && (
+                      <span className="badge-unread">{unread}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </aside>
+  );
+};
