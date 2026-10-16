@@ -116,18 +116,29 @@ class WebSocketClient {
     }
   }
 
-  private send(action: string, payload: unknown, requestId?: string) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({
-        type: action,
-        requestId: requestId || crypto.randomUUID(),
-        payload,
-      }));
-    }
+  public isConnected(): boolean {
+    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
   }
 
-  public sendMessage(payload: SendMessagePayload) {
-    this.send('message.send', payload);
+  private send(action: string, payload: unknown, requestId?: string): boolean {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.send(JSON.stringify({
+          type: action,
+          requestId: requestId || crypto.randomUUID(),
+          payload,
+        }));
+        return true;
+      } catch (err) {
+        console.error('[WebSocket] Send failed', err);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  public sendMessage(payload: SendMessagePayload): boolean {
+    return this.send('message.send', payload);
   }
 
   public markDelivered(messageId: string, conversationId: string) {

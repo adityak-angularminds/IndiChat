@@ -5,6 +5,7 @@ import com.chat.message.dto.MessageHistoryResponse;
 import com.chat.message.dto.SendMessageRequest;
 import com.chat.message.service.MessageService;
 import com.chat.security.CustomUserDetails;
+import com.chat.websocket.ChatWebSocketHandler;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,9 +20,11 @@ import java.util.UUID;
 public class MessageController {
 
     private final MessageService messageService;
+    private final ChatWebSocketHandler chatWebSocketHandler;
 
-    public MessageController(MessageService messageService) {
+    public MessageController(MessageService messageService, ChatWebSocketHandler chatWebSocketHandler) {
         this.messageService = messageService;
+        this.chatWebSocketHandler = chatWebSocketHandler;
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
@@ -42,6 +45,7 @@ public class MessageController {
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         MessageDto message = messageService.sendMessage(request, userDetails.getId());
+        chatWebSocketHandler.broadcastMessageCreated(request.conversationId(), message, null);
         return ResponseEntity.status(HttpStatus.CREATED).body(message);
     }
 

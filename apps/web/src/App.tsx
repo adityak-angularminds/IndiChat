@@ -90,9 +90,15 @@ export const App: React.FC = () => {
       // Check if belongs to current conversation
       if (msg.conversationId === activeConversationId) {
         setMessages((prev) => {
-          // Prevent duplicates if already added optimistically
-          if (prev.some((m) => m.clientMessageId === msg.clientMessageId || m.id === msg.id)) {
-            return prev.map((m) => (m.clientMessageId === msg.clientMessageId ? msg : m));
+          const matchIndex = prev.findIndex(
+            (m) =>
+              (Boolean(msg.clientMessageId) && m.clientMessageId === msg.clientMessageId) ||
+              (Boolean(msg.id) && m.id === msg.id)
+          );
+          if (matchIndex >= 0) {
+            const next = [...prev];
+            next[matchIndex] = { ...msg, status: 'sent' };
+            return next;
           }
           return [...prev, msg];
         });
@@ -225,7 +231,7 @@ export const App: React.FC = () => {
     setMessages([]);
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     if (!currentUser || !activeConversationId) return;
 
     const clientMsgId = crypto.randomUUID();
@@ -245,13 +251,46 @@ export const App: React.FC = () => {
     // Optimistic UI update
     setMessages((prev) => [...prev, optimisticMessage]);
 
-    // Send through WebSocket
-    wsClient.sendMessage({
+    const payload = {
       conversationId: activeConversationId,
       clientMessageId: clientMsgId,
-      messageType: 'TEXT',
+      messageType: 'TEXT' as const,
       content,
-    });
+    };
+
+    // Try WebSocket first
+    const sentWs = wsClient.sendMessage(payload);
+
+    // If WebSocket is not open, fallback immediately to REST API
+    if (!sentWs) {
+      console.warn('[Chat] WebSocket not connected, sending message via REST fallback');
+      try {
+        const saved = await api.sendMessage(payload);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.clientMessageId === clientMsgId || m.id === clientMsgId
+              ? { ...saved, status: 'sent' }
+              : m
+          )
+        );
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversationId
+              ? { ...c, lastMessage: saved, updatedAt: saved.createdAt }
+              : c
+          )
+        );
+      } catch (err) {
+        console.error('[Chat] Failed to send message via REST fallback', err);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.clientMessageId === clientMsgId || m.id === clientMsgId
+              ? { ...m, status: 'failed' }
+              : m
+          )
+        );
+      }
+    }
   };
 
   const handleSelectConversation = (id: string) => {

@@ -139,8 +139,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         SendMessageRequest req = new SendMessageRequest(conversationId, clientMessageId, messageType, content, replyToId);
         MessageDto created = messageService.sendMessage(req, senderId);
+        broadcastMessageCreated(conversationId, created, requestId);
+    }
 
-        // Notify all online members of this conversation
+    public void broadcastMessageCreated(UUID conversationId, MessageDto created, String requestId) {
         List<ConversationMember> members = memberRepository.findByIdConversationId(conversationId);
         Map<String, Object> event = new HashMap<>();
         event.put("type", "message.created");
