@@ -1,0 +1,28 @@
+# Dependencies & Build artifacts
+node_modules/
+dist/
+build/
+target/
+.expo/
+.expo-shared/
+*.log
+*.class
+.DS_Store
+
+# Environment & IDE
+.env
+.env.local
+.idea/
+.vscode/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# Backend & Test outputs
+backend/target/
+backend/.flattened-pom.xml
+test-results/
+coverage/
+
+# Uploaded media (local dev)
+uploads/
