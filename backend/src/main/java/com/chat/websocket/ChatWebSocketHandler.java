@@ -5,6 +5,7 @@ import com.chat.conversation.repository.ConversationMemberRepository;
 import com.chat.message.dto.MessageDto;
 import com.chat.message.dto.MessageReceiptDto;
 import com.chat.message.dto.SendMessageRequest;
+import com.chat.message.repository.MessageRepository;
 import com.chat.message.service.MessageService;
 import com.chat.presence.PresenceService;
 import com.chat.security.JwtTokenProvider;
@@ -32,6 +33,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     private final JwtTokenProvider tokenProvider;
     private final MessageService messageService;
+    private final MessageRepository messageRepository;
     private final ConversationMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final PresenceService presenceService;
@@ -44,6 +46,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     public ChatWebSocketHandler(
         JwtTokenProvider tokenProvider,
         MessageService messageService,
+        MessageRepository messageRepository,
         ConversationMemberRepository memberRepository,
         UserRepository userRepository,
         PresenceService presenceService,
@@ -51,6 +54,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     ) {
         this.tokenProvider = tokenProvider;
         this.messageService = messageService;
+        this.messageRepository = messageRepository;
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.presenceService = presenceService;
@@ -170,14 +174,22 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void broadcastReceipt(MessageReceiptDto receipt, String conversationIdStr) {
+    public void broadcastReceipt(MessageReceiptDto receipt, String conversationIdStr) {
         Map<String, Object> event = Map.of(
             "type", "message.receipt.updated",
             "payload", receipt
         );
 
+        UUID conversationId = null;
         if (conversationIdStr != null && !conversationIdStr.isBlank()) {
-            UUID conversationId = UUID.fromString(conversationIdStr);
+            conversationId = UUID.fromString(conversationIdStr);
+        } else if (receipt.messageId() != null) {
+            conversationId = messageRepository.findById(receipt.messageId())
+                .map(m -> m.getConversation().getId())
+                .orElse(null);
+        }
+
+        if (conversationId != null) {
             List<ConversationMember> members = memberRepository.findByIdConversationId(conversationId);
             for (ConversationMember member : members) {
                 sendToUser(member.getUser().getId(), event);

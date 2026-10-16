@@ -54,7 +54,10 @@ public class MessageController {
         @PathVariable("messageId") UUID messageId,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        messageService.markDelivered(messageId, userDetails.getId());
+        var receipt = messageService.markDelivered(messageId, userDetails.getId());
+        if (receipt != null) {
+            chatWebSocketHandler.broadcastReceipt(receipt, null);
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -63,7 +66,10 @@ public class MessageController {
         @PathVariable("messageId") UUID messageId,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        messageService.markRead(messageId, userDetails.getId());
+        var receipt = messageService.markRead(messageId, userDetails.getId());
+        if (receipt != null) {
+            chatWebSocketHandler.broadcastReceipt(receipt, null);
+        }
         return ResponseEntity.noContent().build();
     }
 }

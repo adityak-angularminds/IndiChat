@@ -258,33 +258,32 @@ export const App: React.FC = () => {
       content,
     };
 
-    // Try WebSocket first
-    const sentWs = wsClient.sendMessage(payload);
-
-    // If WebSocket is not open, fallback immediately to REST API
-    if (!sentWs) {
-      console.warn('[Chat] WebSocket not connected, sending message via REST fallback');
-      try {
-        const saved = await api.sendMessage(payload);
+    try {
+      // Primary: Send via HTTP REST API (visible in DevTools Network tab)
+      const saved = await api.sendMessage(payload);
+      setMessages((prev) =>
+        prev.map((m) =>
+          (m.clientMessageId && m.clientMessageId === clientMsgId) || m.id === clientMsgId
+            ? { ...saved, status: 'sent' }
+            : m
+        )
+      );
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConversationId
+            ? { ...c, lastMessage: saved, updatedAt: saved.createdAt }
+            : c
+        )
+      );
+    } catch (err) {
+      console.warn('[Chat] HTTP API send failed, trying WebSocket fallback:', err);
+      // Fallback: try WebSocket if HTTP fails
+      const sentWs = wsClient.sendMessage(payload);
+      if (!sentWs) {
+        console.error('[Chat] Both HTTP API and WebSocket failed to send');
         setMessages((prev) =>
           prev.map((m) =>
-            m.clientMessageId === clientMsgId || m.id === clientMsgId
-              ? { ...saved, status: 'sent' }
-              : m
-          )
-        );
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === activeConversationId
-              ? { ...c, lastMessage: saved, updatedAt: saved.createdAt }
-              : c
-          )
-        );
-      } catch (err) {
-        console.error('[Chat] Failed to send message via REST fallback', err);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.clientMessageId === clientMsgId || m.id === clientMsgId
+            (m.clientMessageId && m.clientMessageId === clientMsgId) || m.id === clientMsgId
               ? { ...m, status: 'failed' }
               : m
           )
