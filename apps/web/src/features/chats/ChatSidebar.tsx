@@ -8,8 +8,13 @@ import {
   Moon,
   Check,
   CheckCheck,
-  Users
+  Users,
+  Bell,
+  BellRing,
+  BellOff,
+  X
 } from 'lucide-react';
+import { notificationService, NotificationPermissionStatus } from '../../services/notifications';
 
 interface ChatSidebarProps {
   currentUser: User;
@@ -35,6 +40,37 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isMobileOpen
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [notificationStatus, setNotificationStatus] = useState<NotificationPermissionStatus>(() =>
+    notificationService.getPermissionStatus()
+  );
+
+  const handleToggleNotifications = async () => {
+    if (!notificationService.isSupported()) {
+      alert('Desktop notifications are not supported in this browser.');
+      return;
+    }
+
+    if (notificationStatus === 'granted') {
+      notificationService.showNotification('WhatsApp Notifications', {
+        body: 'Push notifications are enabled and active!',
+      });
+      return;
+    }
+
+    if (notificationStatus === 'denied') {
+      alert('Notifications are blocked in your browser settings. Please enable notifications for this site to receive message alerts.');
+      return;
+    }
+
+    const res = await notificationService.requestPermission();
+    setNotificationStatus(res);
+    if (res === 'granted') {
+      notificationService.showNotification('WhatsApp Notifications Active', {
+        body: 'You will now receive desktop alerts for incoming messages.',
+      });
+    }
+  };
+
 
   const filteredConversations = conversations.filter((c) => {
     const title = getConversationTitle(c, currentUser.id).toLowerCase();
@@ -92,6 +128,26 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         </div>
 
         <div className="sidebar-actions">
+          <button
+            className={`icon-btn ${notificationStatus === 'granted' ? 'active-accent' : ''}`}
+            onClick={handleToggleNotifications}
+            title={
+              notificationStatus === 'granted'
+                ? 'Notifications Enabled (Click to test)'
+                : notificationStatus === 'denied'
+                ? 'Notifications Blocked in Browser'
+                : 'Enable Desktop Notifications'
+            }
+            aria-label="Toggle Notifications"
+          >
+            {notificationStatus === 'granted' ? (
+              <BellRing size={20} color="#00a884" />
+            ) : notificationStatus === 'denied' ? (
+              <BellOff size={20} color="#ea4335" />
+            ) : (
+              <Bell size={20} />
+            )}
+          </button>
           <button className="icon-btn" onClick={onOpenNewChat} title="New Chat or Group" aria-label="New Chat">
             <MessageSquarePlus size={20} />
           </button>
@@ -103,6 +159,32 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Notification Banner */}
+      {notificationStatus === 'default' && !notificationService.isDismissed() && (
+        <div className="sidebar-notification-banner" onClick={handleToggleNotifications}>
+          <div className="sidebar-notification-banner-icon">
+            <BellRing size={20} color="#00a884" />
+          </div>
+          <div className="sidebar-notification-banner-content">
+            <span className="sidebar-notification-banner-title">Get notified of new messages</span>
+            <span className="sidebar-notification-banner-link">
+              Turn on desktop notifications &gt;
+            </span>
+          </div>
+          <button
+            className="sidebar-notification-banner-close"
+            onClick={(e) => {
+              e.stopPropagation();
+              notificationService.setDismissed(true);
+              setNotificationStatus(notificationService.getPermissionStatus());
+            }}
+            aria-label="Dismiss banner"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="sidebar-search">

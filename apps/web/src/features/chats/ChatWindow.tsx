@@ -11,7 +11,9 @@ import {
   ChevronLeft,
   Check,
   CheckCheck,
-  Users
+  Users,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 
 interface ChatWindowProps {
@@ -130,6 +132,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   function renderReceiptStatus(msg: Message) {
     if (msg.senderId !== currentUser.id) return null;
+
+    if (msg.status === 'sending') {
+      return (
+        <span title="Sending...">
+          <Clock size={12} className="receipt-icon sending" style={{ opacity: 0.6 }} />
+        </span>
+      );
+    }
+
+    if (msg.status === 'failed') {
+      return (
+        <span title="Failed to send">
+          <AlertCircle size={14} className="receipt-icon error" style={{ color: '#ef4444' }} />
+        </span>
+      );
+    }
+
     const isRead = msg.receipts?.some((r) => r.readAt != null);
     const isDelivered = msg.receipts?.some((r) => r.deliveredAt != null);
 

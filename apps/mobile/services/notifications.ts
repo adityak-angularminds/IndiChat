@@ -1,0 +1,94 @@
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+
+// Configure default notification handler for in-app alert display
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+/**
+ * Request notification permissions and register the Expo push token with the backend.
+ */
+export async function registerForPushNotificationsAsync(
+  backendUrl = 'http://192.168.0.70:8080',
+  authToken?: string
+): Promise<string | null> {
+  let token: string | null = null;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('chat-messages', {
+      name: 'Chat Messages',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#00a884',
+      sound: 'default',
+    });
+  }
+
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('[Push] Notification permission not granted');
+      return null;
+    }
+
+    const pushTokenData = await Notifications.getExpoPushTokenAsync();
+    token = pushTokenData.data;
+    console.log('[Push] Expo push token obtained:', token);
+
+    // Sync token with backend if auth token is present
+    if (authToken && token) {
+      await fetch(`${backendUrl}/api/v1/devices/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          token,
+          platform: Platform.OS,
+        }),
+      });
+      console.log('[Push] Registered push token with backend successfully');
+    }
+  } catch (error) {
+    console.warn('[Push] Error initializing push notifications:', error);
+  }
+
+  return token;
+}
+
+/**
+ * Setup listeners for notification reception and click/tap interaction
+ */
+export function setupNotificationListeners(
+  onNotificationTapped?: (data: Record<string, any>) => void
+) {
+  const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
+    console.log('[Push] Notification received in foreground:', notification);
+  });
+
+  const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = response.notification.request.content.data;
+    console.log('[Push] User tapped notification with data:', data);
+    if (onNotificationTapped && data) {
+      onNotificationTapped(data);
+    }
+  });
+
+  return () => {
+    foregroundSubscription.remove();
+    responseSubscription.remove();
+  };
+}

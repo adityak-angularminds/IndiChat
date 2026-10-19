@@ -2,12 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from './services/api';
 import { wsClient } from './services/websocket';
 import { soundEffects } from './services/audio';
+import { notificationService } from './services/notifications';
 import { User, Conversation, Message, MessageReceipt, AuthResponse } from '@chat/shared-types';
 import { ChatSidebar } from './features/chats/ChatSidebar';
 import { ChatWindow } from './features/chats/ChatWindow';
 import { AuthModal } from './features/auth/AuthModal';
 import { NewChatModal } from './features/chats/NewChatModal';
 import { CallModal } from './features/calls/CallModal';
+import { NotificationModal } from './features/notifications/NotificationModal';
+import { NotificationToastContainer } from './features/notifications/NotificationToastContainer';
+import { generateUUID } from './utils/uuid';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -18,6 +22,7 @@ export const App: React.FC = () => {
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(true);
 
   // Calling state
@@ -33,6 +38,20 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Prompt notification allow popup on opening website if not yet granted
+  useEffect(() => {
+    if (
+      notificationService.isSupported() &&
+      notificationService.getPermissionStatus() === 'default' &&
+      !notificationService.isDismissed()
+    ) {
+      const timer = setTimeout(() => {
+        setShowNotificationModal(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   // Check existing session
   useEffect(() => {
     const token = localStorage.getItem('chat_access_token');
@@ -46,6 +65,7 @@ export const App: React.FC = () => {
         setCurrentUser(user);
         wsClient.connect(token);
         loadConversations();
+        notificationService.syncDeviceToken();
       })
       .catch(() => {
         localStorage.removeItem('chat_access_token');
@@ -90,9 +110,15 @@ export const App: React.FC = () => {
       // Check if belongs to current conversation
       if (msg.conversationId === activeConversationId) {
         setMessages((prev) => {
-          // Prevent duplicates if already added optimistically
-          if (prev.some((m) => m.clientMessageId === msg.clientMessageId || m.id === msg.id)) {
-            return prev.map((m) => (m.clientMessageId === msg.clientMessageId ? msg : m));
+          const matchIndex = prev.findIndex(
+            (m) =>
+              (Boolean(msg.clientMessageId) && m.clientMessageId === msg.clientMessageId) ||
+              (Boolean(msg.id) && m.id === msg.id)
+          );
+          if (matchIndex >= 0) {
+            const next = [...prev];
+            next[matchIndex] = { ...msg, status: 'sent' };
+            return next;
           }
           return [...prev, msg];
         });
@@ -102,6 +128,22 @@ export const App: React.FC = () => {
       if (msg.senderId !== currentUser.id) {
         soundEffects.playIncomingMessage();
         wsClient.markDelivered(msg.id, msg.conversationId);
+
+        // Web Browser & Desktop Push Notification
+        const senderName = msg.sender?.displayName || msg.sender?.username || 'New Message';
+        const conv = conversations.find((c) => c.id === msg.conversationId);
+        const title = conv?.type === 'GROUP' ? (conv.title || 'Group Chat') : senderName;
+        const body = conv?.type === 'GROUP' ? `${senderName}: ${msg.content}` : msg.content;
+
+        notificationService.showNotification(title, {
+          body,
+          tag: msg.conversationId,
+          avatar: senderName.charAt(0).toUpperCase(),
+          onClick: () => {
+            setActiveConversationId(msg.conversationId);
+            setIsMobileOpen(false);
+          },
+        });
       }
 
       // Update conversations sidebar lastMessage & unread count
@@ -213,9 +255,11 @@ export const App: React.FC = () => {
     setCurrentUser(res.user);
     wsClient.connect(res.tokens.accessToken);
     loadConversations();
+    notificationService.syncDeviceToken();
   };
 
   const handleLogout = () => {
+    notificationService.unregister();
     wsClient.disconnect();
     localStorage.removeItem('chat_access_token');
     localStorage.removeItem('chat_refresh_token');
@@ -225,10 +269,10 @@ export const App: React.FC = () => {
     setMessages([]);
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     if (!currentUser || !activeConversationId) return;
 
-    const clientMsgId = crypto.randomUUID();
+    const clientMsgId = generateUUID();
     const optimisticMessage: Message = {
       id: clientMsgId,
       conversationId: activeConversationId,
@@ -245,13 +289,45 @@ export const App: React.FC = () => {
     // Optimistic UI update
     setMessages((prev) => [...prev, optimisticMessage]);
 
-    // Send through WebSocket
-    wsClient.sendMessage({
+    const payload = {
       conversationId: activeConversationId,
       clientMessageId: clientMsgId,
-      messageType: 'TEXT',
+      messageType: 'TEXT' as const,
       content,
-    });
+    };
+
+    try {
+      // Primary: Send via HTTP REST API (visible in DevTools Network tab)
+      const saved = await api.sendMessage(payload);
+      setMessages((prev) =>
+        prev.map((m) =>
+          (m.clientMessageId && m.clientMessageId === clientMsgId) || m.id === clientMsgId
+            ? { ...saved, status: 'sent' }
+            : m
+        )
+      );
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConversationId
+            ? { ...c, lastMessage: saved, updatedAt: saved.createdAt }
+            : c
+        )
+      );
+    } catch (err) {
+      console.warn('[Chat] HTTP API send failed, trying WebSocket fallback:', err);
+      // Fallback: try WebSocket if HTTP fails
+      const sentWs = wsClient.sendMessage(payload);
+      if (!sentWs) {
+        console.error('[Chat] Both HTTP API and WebSocket failed to send');
+        setMessages((prev) =>
+          prev.map((m) =>
+            (m.clientMessageId && m.clientMessageId === clientMsgId) || m.id === clientMsgId
+              ? { ...m, status: 'failed' }
+              : m
+          )
+        );
+      }
+    }
   };
 
   const handleSelectConversation = (id: string) => {
@@ -313,7 +389,19 @@ export const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <AuthModal onAuthenticated={handleAuthenticated} />;
+    return (
+      <>
+        <AuthModal onAuthenticated={handleAuthenticated} />
+        <NotificationModal
+          isOpen={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+          onGranted={() => {
+            notificationService.syncDeviceToken();
+          }}
+        />
+        <NotificationToastContainer />
+      </>
+    );
   }
 
   return (
@@ -367,6 +455,16 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        onGranted={() => {
+          notificationService.syncDeviceToken();
+        }}
+      />
+
+      <NotificationToastContainer />
     </div>
   );
 };

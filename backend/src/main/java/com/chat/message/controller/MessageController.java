@@ -5,6 +5,7 @@ import com.chat.message.dto.MessageHistoryResponse;
 import com.chat.message.dto.SendMessageRequest;
 import com.chat.message.service.MessageService;
 import com.chat.security.CustomUserDetails;
+import com.chat.websocket.ChatWebSocketHandler;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,9 +20,17 @@ import java.util.UUID;
 public class MessageController {
 
     private final MessageService messageService;
+    private final ChatWebSocketHandler chatWebSocketHandler;
+    private final com.chat.notification.service.PushNotificationService pushNotificationService;
 
-    public MessageController(MessageService messageService) {
+    public MessageController(
+        MessageService messageService,
+        ChatWebSocketHandler chatWebSocketHandler,
+        com.chat.notification.service.PushNotificationService pushNotificationService
+    ) {
         this.messageService = messageService;
+        this.chatWebSocketHandler = chatWebSocketHandler;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
@@ -42,6 +51,8 @@ public class MessageController {
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         MessageDto message = messageService.sendMessage(request, userDetails.getId());
+        chatWebSocketHandler.broadcastMessageCreated(request.conversationId(), message, null);
+        pushNotificationService.sendNotificationForMessage(request.conversationId(), message, userDetails.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(message);
     }
 
@@ -50,7 +61,10 @@ public class MessageController {
         @PathVariable("messageId") UUID messageId,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        messageService.markDelivered(messageId, userDetails.getId());
+        var receipt = messageService.markDelivered(messageId, userDetails.getId());
+        if (receipt != null) {
+            chatWebSocketHandler.broadcastReceipt(receipt, null);
+        }
         return ResponseEntity.noContent().build();
     }
 
@@ -59,7 +73,10 @@ public class MessageController {
         @PathVariable("messageId") UUID messageId,
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        messageService.markRead(messageId, userDetails.getId());
+        var receipt = messageService.markRead(messageId, userDetails.getId());
+        if (receipt != null) {
+            chatWebSocketHandler.broadcastReceipt(receipt, null);
+        }
         return ResponseEntity.noContent().build();
     }
 }
