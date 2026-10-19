@@ -806,3 +806,336 @@ html, body, #root {
   0%, 80%, 100% { transform: translateY(0); }
   40% { transform: translateY(-4px); }
 }
+
+/* ==========================================================================
+   Notification Modal & Banner & Toasts
+   ========================================================================== */
+
+.notification-modal-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  max-width: 440px;
+  width: 90%;
+  position: relative;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.notification-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.notification-modal-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.notification-modal-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.notification-modal-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 168, 132, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.notification-modal-icon.denied {
+  background: rgba(234, 67, 53, 0.12);
+}
+
+.notification-pulse-ring {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid rgba(0, 168, 132, 0.35);
+  border-radius: var(--radius-full);
+  animation: pulseRing 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+@keyframes pulseRing {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.3; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+.bell-ringing {
+  animation: bellRing 2.2s infinite ease-in-out;
+  transform-origin: top center;
+}
+
+@keyframes bellRing {
+  0%, 65%, 100% { transform: rotate(0); }
+  70% { transform: rotate(15deg); }
+  75% { transform: rotate(-12deg); }
+  80% { transform: rotate(8deg); }
+  85% { transform: rotate(-4deg); }
+  90% { transform: rotate(0); }
+}
+
+.notification-modal-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.notification-modal-desc {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.notification-features-list {
+  background-color: var(--bg-hover);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.notification-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.notification-denied-instructions {
+  background-color: rgba(234, 67, 53, 0.08);
+  border: 1px solid rgba(234, 67, 53, 0.25);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.notification-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-btn-allow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+.notification-btn-dismiss {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.notification-btn-dismiss:hover {
+  color: var(--text-primary);
+}
+
+/* Sidebar WhatsApp Notification Banner */
+.sidebar-notification-banner {
+  background-color: #182229;
+  border-bottom: 1px solid var(--border-color);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.sidebar-notification-banner:hover {
+  background-color: #202c33;
+}
+
+.sidebar-notification-banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 168, 132, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-notification-banner-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-notification-banner-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sidebar-notification-banner-link {
+  font-size: 0.78rem;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-notification-banner-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-notification-banner-close:hover {
+  color: var(--text-primary);
+}
+
+/* On-Screen Toast Container */
+.notification-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 380px;
+  width: calc(100vw - 40px);
+}
+
+.notification-toast-item {
+  pointer-events: auto;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.notification-toast-item:hover {
+  transform: translateY(-2px);
+  background-color: var(--bg-hover);
+}
+
+@keyframes toastSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.notification-toast-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 168, 132, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.notification-toast-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notification-toast-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+}
+
+.notification-toast-close:hover {
+  color: var(--text-primary);
+}
+
+.notification-toast-body {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+

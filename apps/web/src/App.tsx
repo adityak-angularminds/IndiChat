@@ -9,6 +9,8 @@ import { ChatWindow } from './features/chats/ChatWindow';
 import { AuthModal } from './features/auth/AuthModal';
 import { NewChatModal } from './features/chats/NewChatModal';
 import { CallModal } from './features/calls/CallModal';
+import { NotificationModal } from './features/notifications/NotificationModal';
+import { NotificationToastContainer } from './features/notifications/NotificationToastContainer';
 import { generateUUID } from './utils/uuid';
 
 export const App: React.FC = () => {
@@ -20,6 +22,7 @@ export const App: React.FC = () => {
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(true);
 
   // Calling state
@@ -34,6 +37,20 @@ export const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Prompt notification allow popup on opening website if not yet granted
+  useEffect(() => {
+    if (
+      notificationService.isSupported() &&
+      notificationService.getPermissionStatus() === 'default' &&
+      !notificationService.isDismissed()
+    ) {
+      const timer = setTimeout(() => {
+        setShowNotificationModal(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Check existing session
   useEffect(() => {
@@ -112,24 +129,21 @@ export const App: React.FC = () => {
         soundEffects.playIncomingMessage();
         wsClient.markDelivered(msg.id, msg.conversationId);
 
-        // Desktop Push Notification when tab is backgrounded or in another conversation
-        const isHidden = typeof document !== 'undefined' && document.hidden;
-        const isDifferentChat = msg.conversationId !== activeConversationId;
-        if (isHidden || isDifferentChat) {
-          const senderName = msg.sender?.displayName || msg.sender?.username || 'New Message';
-          const conv = conversations.find((c) => c.id === msg.conversationId);
-          const title = conv?.type === 'GROUP' ? (conv.title || 'Group Chat') : senderName;
-          const body = conv?.type === 'GROUP' ? `${senderName}: ${msg.content}` : msg.content;
+        // Web Browser & Desktop Push Notification
+        const senderName = msg.sender?.displayName || msg.sender?.username || 'New Message';
+        const conv = conversations.find((c) => c.id === msg.conversationId);
+        const title = conv?.type === 'GROUP' ? (conv.title || 'Group Chat') : senderName;
+        const body = conv?.type === 'GROUP' ? `${senderName}: ${msg.content}` : msg.content;
 
-          notificationService.showNotification(title, {
-            body,
-            tag: msg.conversationId,
-            onClick: () => {
-              setActiveConversationId(msg.conversationId);
-              setIsMobileOpen(false);
-            },
-          });
-        }
+        notificationService.showNotification(title, {
+          body,
+          tag: msg.conversationId,
+          avatar: senderName.charAt(0).toUpperCase(),
+          onClick: () => {
+            setActiveConversationId(msg.conversationId);
+            setIsMobileOpen(false);
+          },
+        });
       }
 
       // Update conversations sidebar lastMessage & unread count
@@ -375,7 +389,19 @@ export const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <AuthModal onAuthenticated={handleAuthenticated} />;
+    return (
+      <>
+        <AuthModal onAuthenticated={handleAuthenticated} />
+        <NotificationModal
+          isOpen={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+          onGranted={() => {
+            notificationService.syncDeviceToken();
+          }}
+        />
+        <NotificationToastContainer />
+      </>
+    );
   }
 
   return (
@@ -429,6 +455,16 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      <NotificationModal
+        isOpen={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+        onGranted={() => {
+          notificationService.syncDeviceToken();
+        }}
+      />
+
+      <NotificationToastContainer />
     </div>
   );
 };
