@@ -1,7 +1,21 @@
-import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { registerForPushNotificationsAsync, setupNotificationListeners } from '../services/notifications';
 
 export default function RootLayout() {
+  const router = useRouter();
+
+  useEffect(() => {
+    registerForPushNotificationsAsync();
+    const cleanup = setupNotificationListeners((data) => {
+      if (data?.conversationId) {
+        router.push(`/chat/${data.conversationId}?name=${encodeURIComponent(data.title || 'Chat')}`);
+      }
+    });
+    return cleanup;
+  }, [router]);
+
   return (
     <>
       <StatusBar style="light" />
@@ -20,3 +34,4 @@ export default function RootLayout() {
     </>
   );
 }
+

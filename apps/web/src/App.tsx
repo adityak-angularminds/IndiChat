@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { api } from './services/api';
 import { wsClient } from './services/websocket';
 import { soundEffects } from './services/audio';
+import { notificationService } from './services/notifications';
 import { User, Conversation, Message, MessageReceipt, AuthResponse } from '@chat/shared-types';
 import { ChatSidebar } from './features/chats/ChatSidebar';
 import { ChatWindow } from './features/chats/ChatWindow';
@@ -47,6 +48,7 @@ export const App: React.FC = () => {
         setCurrentUser(user);
         wsClient.connect(token);
         loadConversations();
+        notificationService.syncDeviceToken();
       })
       .catch(() => {
         localStorage.removeItem('chat_access_token');
@@ -109,6 +111,25 @@ export const App: React.FC = () => {
       if (msg.senderId !== currentUser.id) {
         soundEffects.playIncomingMessage();
         wsClient.markDelivered(msg.id, msg.conversationId);
+
+        // Desktop Push Notification when tab is backgrounded or in another conversation
+        const isHidden = typeof document !== 'undefined' && document.hidden;
+        const isDifferentChat = msg.conversationId !== activeConversationId;
+        if (isHidden || isDifferentChat) {
+          const senderName = msg.sender?.displayName || msg.sender?.username || 'New Message';
+          const conv = conversations.find((c) => c.id === msg.conversationId);
+          const title = conv?.type === 'GROUP' ? (conv.title || 'Group Chat') : senderName;
+          const body = conv?.type === 'GROUP' ? `${senderName}: ${msg.content}` : msg.content;
+
+          notificationService.showNotification(title, {
+            body,
+            tag: msg.conversationId,
+            onClick: () => {
+              setActiveConversationId(msg.conversationId);
+              setIsMobileOpen(false);
+            },
+          });
+        }
       }
 
       // Update conversations sidebar lastMessage & unread count
@@ -220,9 +241,11 @@ export const App: React.FC = () => {
     setCurrentUser(res.user);
     wsClient.connect(res.tokens.accessToken);
     loadConversations();
+    notificationService.syncDeviceToken();
   };
 
   const handleLogout = () => {
+    notificationService.unregister();
     wsClient.disconnect();
     localStorage.removeItem('chat_access_token');
     localStorage.removeItem('chat_refresh_token');

@@ -7,6 +7,7 @@ import com.chat.message.dto.MessageReceiptDto;
 import com.chat.message.dto.SendMessageRequest;
 import com.chat.message.repository.MessageRepository;
 import com.chat.message.service.MessageService;
+import com.chat.notification.service.PushNotificationService;
 import com.chat.presence.PresenceService;
 import com.chat.security.JwtTokenProvider;
 import com.chat.user.repository.UserRepository;
@@ -37,6 +38,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ConversationMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final PresenceService presenceService;
+    private final PushNotificationService pushNotificationService;
     private final ObjectMapper objectMapper;
 
     // Active session mappings
@@ -50,6 +52,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         ConversationMemberRepository memberRepository,
         UserRepository userRepository,
         PresenceService presenceService,
+        PushNotificationService pushNotificationService,
         ObjectMapper objectMapper
     ) {
         this.tokenProvider = tokenProvider;
@@ -58,6 +61,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         this.memberRepository = memberRepository;
         this.userRepository = userRepository;
         this.presenceService = presenceService;
+        this.pushNotificationService = pushNotificationService;
         this.objectMapper = objectMapper;
     }
 
@@ -144,6 +148,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         SendMessageRequest req = new SendMessageRequest(conversationId, clientMessageId, messageType, content, replyToId);
         MessageDto created = messageService.sendMessage(req, senderId);
         broadcastMessageCreated(conversationId, created, requestId);
+        pushNotificationService.sendNotificationForMessage(conversationId, created, senderId);
     }
 
     public void broadcastMessageCreated(UUID conversationId, MessageDto created, String requestId) {

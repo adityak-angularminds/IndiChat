@@ -21,10 +21,16 @@ public class MessageController {
 
     private final MessageService messageService;
     private final ChatWebSocketHandler chatWebSocketHandler;
+    private final com.chat.notification.service.PushNotificationService pushNotificationService;
 
-    public MessageController(MessageService messageService, ChatWebSocketHandler chatWebSocketHandler) {
+    public MessageController(
+        MessageService messageService,
+        ChatWebSocketHandler chatWebSocketHandler,
+        com.chat.notification.service.PushNotificationService pushNotificationService
+    ) {
         this.messageService = messageService;
         this.chatWebSocketHandler = chatWebSocketHandler;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
@@ -46,6 +52,7 @@ public class MessageController {
     ) {
         MessageDto message = messageService.sendMessage(request, userDetails.getId());
         chatWebSocketHandler.broadcastMessageCreated(request.conversationId(), message, null);
+        pushNotificationService.sendNotificationForMessage(request.conversationId(), message, userDetails.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(message);
     }
 

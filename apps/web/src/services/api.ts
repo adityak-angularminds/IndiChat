@@ -95,4 +95,16 @@ export const api = {
   markRead: (messageId: string) => request<void>(`/messages/${messageId}/read`, {
     method: 'POST',
   }),
+
+  // Device Tokens (Push Notifications)
+  registerDeviceToken: (token: string, platform = 'web') => request<void>('/devices/token', {
+    method: 'POST',
+    body: JSON.stringify({ token, platform }),
+  }),
+
+  unregisterDeviceToken: (token: string) => request<void>('/devices/token', {
+    method: 'DELETE',
+    body: JSON.stringify({ token }),
+  }),
 };
+
