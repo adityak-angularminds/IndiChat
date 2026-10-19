@@ -113,6 +113,38 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return <Check size={15} className="receipt-icon sent" />;
   }
 
+  function renderMessageSnippet(msg: Conversation['lastMessage']): string {
+    if (!msg) return 'No messages yet';
+    if (msg.type === 'IMAGE') {
+      try {
+        const data = JSON.parse(msg.content);
+        return data.caption ? `📷 ${data.caption}` : '📷 Photo';
+      } catch {
+        return '📷 Photo';
+      }
+    }
+    if (msg.type === 'VIDEO') {
+      try {
+        const data = JSON.parse(msg.content);
+        return data.caption ? `🎥 ${data.caption}` : '🎥 Video';
+      } catch {
+        return '🎥 Video';
+      }
+    }
+    if (msg.type === 'AUDIO') {
+      return '🎵 Audio';
+    }
+    if (msg.type === 'DOCUMENT') {
+      try {
+        const data = JSON.parse(msg.content);
+        return `📄 ${data.fileName || 'Document'}`;
+      } catch {
+        return '📄 Document';
+      }
+    }
+    return msg.content || '';
+  }
+
   return (
     <aside className={`sidebar ${!isMobileOpen ? 'collapsed' : ''}`}>
       {/* Header */}
@@ -251,7 +283,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <div className="last-message-snippet">
                       {renderReceipt(conv.lastMessage)}
                       <span>
-                        {conv.lastMessage ? conv.lastMessage.content : 'No messages yet'}
+                        {renderMessageSnippet(conv.lastMessage)}
                       </span>
                     </div>
 

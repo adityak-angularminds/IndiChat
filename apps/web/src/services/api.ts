@@ -7,7 +7,8 @@ import {
   CreateConversationRequest,
   MessageHistoryResponse,
   Message,
-  SendMessagePayload
+  SendMessagePayload,
+  FileUploadResponse
 } from '@chat/shared-types';
 
 const API_BASE = '/api/v1';
@@ -106,5 +107,33 @@ export const api = {
     method: 'DELETE',
     body: JSON.stringify({ token }),
   }),
+
+  // File Uploads
+  uploadFile: async (file: File): Promise<FileUploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('chat_access_token');
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const res = await fetch(`${API_BASE}/files/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      let errorMsg = `Upload failed: ${res.statusText}`;
+      try {
+        const data = await res.json();
+        if (data.message) errorMsg = data.message;
+      } catch {
+        // fallback
+      }
+      throw new ApiError(res.status, errorMsg);
+    }
+
+    return res.json();
+  },
 };
 
