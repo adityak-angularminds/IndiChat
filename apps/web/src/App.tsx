@@ -8,6 +8,7 @@ import { ChatWindow } from './features/chats/ChatWindow';
 import { AuthModal } from './features/auth/AuthModal';
 import { NewChatModal } from './features/chats/NewChatModal';
 import { CallModal } from './features/calls/CallModal';
+import { generateUUID } from './utils/uuid';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -234,7 +235,7 @@ export const App: React.FC = () => {
   const handleSendMessage = async (content: string) => {
     if (!currentUser || !activeConversationId) return;
 
-    const clientMsgId = crypto.randomUUID();
+    const clientMsgId = generateUUID();
     const optimisticMessage: Message = {
       id: clientMsgId,
       conversationId: activeConversationId,

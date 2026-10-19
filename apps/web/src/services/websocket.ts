@@ -7,6 +7,7 @@ import {
   SendMessagePayload,
   WebSocketMessage
 } from '@chat/shared-types';
+import { generateUUID } from '../utils/uuid';
 
 type MessageCreatedHandler = (message: Message) => void;
 type ReceiptUpdatedHandler = (receipt: MessageReceipt) => void;
@@ -125,7 +126,7 @@ class WebSocketClient {
       try {
         this.socket.send(JSON.stringify({
           type: action,
-          requestId: requestId || crypto.randomUUID(),
+          requestId: requestId || generateUUID(),
           payload,
         }));
         return true;
