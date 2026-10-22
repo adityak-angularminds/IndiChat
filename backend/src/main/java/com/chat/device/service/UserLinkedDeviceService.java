@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,26 +27,91 @@ public class UserLinkedDeviceService {
     }
 
     @Transactional
-    public List<UserLinkedDeviceDto> getUserDevices(UUID userId) {
+    public UserLinkedDevice registerOrUpdateDevice(
+        User user,
+        UUID deviceId,
+        String deviceName,
+        String platform,
+        String browser,
+        String ipAddress
+    ) {
+        if (deviceId == null) {
+            deviceId = UUID.randomUUID();
+        }
+        UserLinkedDevice device = deviceRepository.findById(deviceId).orElse(null);
+        if (device == null || !device.getUser().getId().equals(user.getId())) {
+            device = new UserLinkedDevice();
+            device.setId(deviceId);
+            device.setUser(user);
+            device.setCreatedAt(Instant.now());
+        }
+
+        if (deviceName != null && !deviceName.isBlank()) {
+            device.setDeviceName(deviceName.trim());
+        } else if (device.getDeviceName() == null) {
+            device.setDeviceName("Web Browser");
+        }
+
+        if (platform != null && !platform.isBlank()) {
+            device.setPlatform(platform.trim().toLowerCase());
+        } else if (device.getPlatform() == null) {
+            device.setPlatform("web");
+        }
+
+        if (browser != null && !browser.isBlank()) {
+            device.setBrowser(browser.trim());
+        } else if (device.getBrowser() == null) {
+            device.setBrowser("Browser Session");
+        }
+
+        if (device.getLocation() == null || device.getLocation().isBlank()) {
+            device.setLocation("Pune, India");
+        }
+
+        if (ipAddress != null && !ipAddress.isBlank()) {
+            device.setIpAddress(ipAddress.trim());
+        } else if (device.getIpAddress() == null) {
+            device.setIpAddress("192.168.1.100");
+        }
+
+        device.setLastActiveAt(Instant.now());
+        return deviceRepository.save(device);
+    }
+
+    @Transactional
+    public List<UserLinkedDeviceDto> getUserDevices(
+        UUID userId,
+        UUID currentDeviceId,
+        String deviceName,
+        String platform,
+        String browser,
+        String ipAddress
+    ) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (currentDeviceId != null) {
+            registerOrUpdateDevice(user, currentDeviceId, deviceName, platform, browser, ipAddress);
+        }
+
         List<UserLinkedDevice> list = deviceRepository.findByUserIdOrderByLastActiveAtDesc(userId);
         if (list.isEmpty()) {
-            User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-
-            // Initialize default active session for this user
-            UserLinkedDevice current = new UserLinkedDevice(
+            UUID idToUse = currentDeviceId != null ? currentDeviceId : UUID.randomUUID();
+            UserLinkedDevice current = registerOrUpdateDevice(
                 user,
-                "Google Chrome (Linux)",
-                "linux",
-                "Chrome 124.0",
-                "Pune, India",
-                "192.168.1.104",
-                true
+                idToUse,
+                deviceName != null ? deviceName : "Google Chrome (Linux)",
+                platform != null ? platform : "linux",
+                browser != null ? browser : "Chrome 124.0",
+                ipAddress != null ? ipAddress : "192.168.1.104"
             );
-            deviceRepository.save(current);
             list = List.of(current);
         }
-        return list.stream().map(UserLinkedDeviceDto::fromEntity).toList();
+
+        final UUID activeId = currentDeviceId != null ? currentDeviceId : list.get(0).getId();
+        return list.stream()
+            .map(d -> UserLinkedDeviceDto.fromEntity(d, d.getId().equals(activeId)))
+            .toList();
     }
 
     @Transactional
@@ -61,7 +127,7 @@ public class UserLinkedDeviceService {
 
         UserLinkedDevice device = new UserLinkedDevice(user, name, platform, browser, location, ip, false);
         UserLinkedDevice saved = deviceRepository.save(device);
-        return UserLinkedDeviceDto.fromEntity(saved);
+        return UserLinkedDeviceDto.fromEntity(saved, false);
     }
 
     @Transactional
@@ -70,7 +136,14 @@ public class UserLinkedDeviceService {
     }
 
     @Transactional
-    public void removeAllOtherDevices(UUID userId) {
-        deviceRepository.deleteOtherDevicesByUserId(userId);
+    public void removeAllOtherDevices(UUID userId, UUID currentDeviceId) {
+        if (currentDeviceId != null) {
+            deviceRepository.deleteByUserIdAndIdNot(userId, currentDeviceId);
+        } else {
+            List<UserLinkedDevice> list = deviceRepository.findByUserIdOrderByLastActiveAtDesc(userId);
+            if (!list.isEmpty()) {
+                deviceRepository.deleteByUserIdAndIdNot(userId, list.get(0).getId());
+            }
+        }
     }
 }

@@ -8,15 +8,18 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface UserLinkedDeviceRepository extends JpaRepository<UserLinkedDevice, UUID> {
     List<UserLinkedDevice> findByUserIdOrderByLastActiveAtDesc(UUID userId);
 
+    Optional<UserLinkedDevice> findByIdAndUserId(UUID id, UUID userId);
+
     @Modifying
-    @Query("DELETE FROM UserLinkedDevice d WHERE d.user.id = :userId AND d.isCurrent = false")
-    void deleteOtherDevicesByUserId(@Param("userId") UUID userId);
+    @Query("DELETE FROM UserLinkedDevice d WHERE d.user.id = :userId AND d.id <> :currentDeviceId")
+    void deleteByUserIdAndIdNot(@Param("userId") UUID userId, @Param("currentDeviceId") UUID currentDeviceId);
 
     @Modifying
     @Query("DELETE FROM UserLinkedDevice d WHERE d.id = :deviceId AND d.user.id = :userId")

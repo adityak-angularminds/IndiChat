@@ -4,6 +4,7 @@ import com.chat.device.dto.LinkDeviceRequest;
 import com.chat.device.dto.UserLinkedDeviceDto;
 import com.chat.device.service.UserLinkedDeviceService;
 import com.chat.security.CustomUserDetails;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -24,9 +25,27 @@ public class LinkedDeviceController {
 
     @GetMapping
     public ResponseEntity<List<UserLinkedDeviceDto>> getLinkedDevices(
-        @AuthenticationPrincipal CustomUserDetails userDetails
+        @AuthenticationPrincipal CustomUserDetails userDetails,
+        @RequestHeader(value = "X-Device-Id", required = false) String currentDeviceIdStr,
+        @RequestHeader(value = "X-Device-Name", required = false) String deviceName,
+        @RequestHeader(value = "X-Device-Platform", required = false) String platform,
+        @RequestHeader(value = "X-Device-Browser", required = false) String browser,
+        HttpServletRequest servletRequest
     ) {
-        List<UserLinkedDeviceDto> devices = deviceService.getUserDevices(userDetails.getId());
+        UUID currentDeviceId = null;
+        if (currentDeviceIdStr != null && !currentDeviceIdStr.isBlank()) {
+            try {
+                currentDeviceId = UUID.fromString(currentDeviceIdStr.trim());
+            } catch (Exception ignored) {}
+        }
+        String ip = servletRequest != null ? servletRequest.getHeader("X-Forwarded-For") : null;
+        if (ip == null || ip.isBlank()) {
+            ip = servletRequest != null ? servletRequest.getRemoteAddr() : "127.0.0.1";
+        }
+
+        List<UserLinkedDeviceDto> devices = deviceService.getUserDevices(
+            userDetails.getId(), currentDeviceId, deviceName, platform, browser, ip
+        );
         return ResponseEntity.ok(devices);
     }
 
@@ -50,9 +69,16 @@ public class LinkedDeviceController {
 
     @DeleteMapping("/others")
     public ResponseEntity<Map<String, String>> removeOtherDevices(
-        @AuthenticationPrincipal CustomUserDetails userDetails
+        @AuthenticationPrincipal CustomUserDetails userDetails,
+        @RequestHeader(value = "X-Device-Id", required = false) String currentDeviceIdStr
     ) {
-        deviceService.removeAllOtherDevices(userDetails.getId());
+        UUID currentDeviceId = null;
+        if (currentDeviceIdStr != null && !currentDeviceIdStr.isBlank()) {
+            try {
+                currentDeviceId = UUID.fromString(currentDeviceIdStr.trim());
+            } catch (Exception ignored) {}
+        }
+        deviceService.removeAllOtherDevices(userDetails.getId(), currentDeviceId);
         return ResponseEntity.ok(Map.of("message", "Logged out from all other devices"));
     }
 }

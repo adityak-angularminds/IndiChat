@@ -2,16 +2,20 @@ package com.chat.device.entity;
 
 import com.chat.user.entity.User;
 import jakarta.persistence.*;
+import org.springframework.data.domain.Persistable;
+
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "user_linked_devices")
-public class UserLinkedDevice {
+public class UserLinkedDevice implements Persistable<UUID> {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
+
+    @Transient
+    private boolean isNew = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -43,7 +47,8 @@ public class UserLinkedDevice {
 
     public UserLinkedDevice() {}
 
-    public UserLinkedDevice(User user, String deviceName, String platform, String browser, String location, String ipAddress, boolean isCurrent) {
+    public UserLinkedDevice(UUID id, User user, String deviceName, String platform, String browser, String location, String ipAddress, boolean isCurrent) {
+        this.id = id != null ? id : UUID.randomUUID();
         this.user = user;
         this.deviceName = deviceName;
         this.platform = platform;
@@ -53,10 +58,23 @@ public class UserLinkedDevice {
         this.isCurrent = isCurrent;
         this.lastActiveAt = Instant.now();
         this.createdAt = Instant.now();
+        this.isNew = true;
     }
 
+    public UserLinkedDevice(User user, String deviceName, String platform, String browser, String location, String ipAddress, boolean isCurrent) {
+        this(UUID.randomUUID(), user, deviceName, platform, browser, location, ipAddress, isCurrent);
+    }
+
+    @Override
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+
+    @Override
+    public boolean isNew() { return isNew; }
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() { this.isNew = false; }
 
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }

@@ -11,6 +11,8 @@ import {
   FileUploadResponse
 } from '@chat/shared-types';
 
+import { getDeviceDetails } from '../utils/device';
+
 const API_BASE = '/api/v1';
 
 export class ApiError extends Error {
@@ -24,9 +26,24 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function getDeviceHeaders(): Record<string, string> {
+  try {
+    const details = getDeviceDetails();
+    return {
+      'X-Device-Id': details.deviceId,
+      'X-Device-Name': details.deviceName,
+      'X-Device-Platform': details.platform,
+      'X-Device-Browser': details.browser,
+    };
+  } catch {
+    return {};
+  }
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = {
     'Content-Type': 'application/json',
+    ...getDeviceHeaders(),
     ...getAuthHeader(),
     ...options.headers,
   };
@@ -56,15 +73,33 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // Auth
-  register: (data: RegisterRequest) => request<AuthResponse>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  register: (data: RegisterRequest) => {
+    const details = getDeviceDetails();
+    return request<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: details.deviceId,
+        deviceName: details.deviceName,
+        platform: details.platform,
+        browser: details.browser,
+        ...data,
+      }),
+    });
+  },
 
-  login: (data: LoginRequest) => request<AuthResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  login: (data: LoginRequest) => {
+    const details = getDeviceDetails();
+    return request<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: details.deviceId,
+        deviceName: details.deviceName,
+        platform: details.platform,
+        browser: details.browser,
+        ...data,
+      }),
+    });
+  },
 
   // Users
   getMe: () => request<User>('/users/me'),

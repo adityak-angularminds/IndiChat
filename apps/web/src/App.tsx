@@ -287,6 +287,7 @@ export const App: React.FC = () => {
   }, [currentUser, activeConversationId, conversations]);
 
   const handleAuthenticated = (res: AuthResponse) => {
+    if (!res.user || !res.tokens) return;
     setCurrentUser(res.user);
     wsClient.connect(res.tokens.accessToken);
     loadConversations();

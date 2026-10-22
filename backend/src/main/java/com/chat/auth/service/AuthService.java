@@ -3,10 +3,16 @@ package com.chat.auth.service;
 import com.chat.auth.dto.*;
 import com.chat.auth.entity.RefreshToken;
 import com.chat.auth.repository.RefreshTokenRepository;
+import com.chat.device.service.UserLinkedDeviceService;
 import com.chat.security.JwtTokenProvider;
+import com.chat.settings.entity.UserSettings;
+import com.chat.settings.repository.UserSettingsRepository;
 import com.chat.user.dto.UserDto;
 import com.chat.user.entity.User;
 import com.chat.user.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,29 +21,48 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final UserSettingsRepository userSettingsRepository;
+    private final UserLinkedDeviceService linkedDeviceService;
 
     public AuthService(
         UserRepository userRepository,
         RefreshTokenRepository refreshTokenRepository,
         PasswordEncoder passwordEncoder,
-        JwtTokenProvider tokenProvider
+        JwtTokenProvider tokenProvider,
+        UserSettingsRepository userSettingsRepository,
+        UserLinkedDeviceService linkedDeviceService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.userSettingsRepository = userSettingsRepository;
+        this.linkedDeviceService = linkedDeviceService;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest req) {
+        return register(req, null);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest req) {
+        return login(req, null);
+    }
+
+    @Transactional
+    public AuthResponse register(RegisterRequest req, HttpServletRequest servletRequest) {
         if (userRepository.findByUsername(req.username()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already taken");
         }
@@ -52,11 +77,14 @@ public class AuthService {
         User user = new User(req.username(), req.email(), req.phoneNumber(), encodedPassword, req.displayName());
         user = userRepository.save(user);
 
+        // Record initial device session
+        recordDeviceLogin(user, null, null, null, null, null, servletRequest);
+
         return createAuthResponse(user);
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest req) {
+    public AuthResponse login(LoginRequest req, HttpServletRequest servletRequest) {
         User user = userRepository.findByUsernameOrEmail(req.usernameOrEmail())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password"));
 
@@ -64,8 +92,34 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
 
+        // Check Two-Step Verification (2FA)
+        UserSettings settings = userSettingsRepository.findById(user.getId()).orElse(null);
+        if (settings != null && settings.isTwoFactorEnabled()) {
+            if (req.twoFactorPin() == null || req.twoFactorPin().trim().isEmpty()) {
+                return AuthResponse.twoFactorRequired("Two-step verification PIN required");
+            }
+
+            String configuredPin = settings.getTwoFactorPin();
+            if (configuredPin != null && !configuredPin.isBlank()) {
+                if (!configuredPin.trim().equals(req.twoFactorPin().trim())) {
+                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Incorrect 6-digit two-step verification PIN");
+                }
+            }
+        }
+
         user.setLastSeenAt(Instant.now());
         userRepository.save(user);
+
+        // Record or update linked device session
+        recordDeviceLogin(
+            user,
+            req.deviceId(),
+            req.deviceName(),
+            req.platform(),
+            req.browser(),
+            null,
+            servletRequest
+        );
 
         return createAuthResponse(user);
     }
@@ -96,6 +150,56 @@ public class AuthService {
         refreshTokenRepository.save(nextToken);
 
         return new AuthTokens(newAccessToken, newRefreshToken, "Bearer", tokenProvider.getExpirationMs());
+    }
+
+    private void recordDeviceLogin(
+        User user,
+        String deviceIdStr,
+        String deviceName,
+        String platform,
+        String browser,
+        String ipAddress,
+        HttpServletRequest servletRequest
+    ) {
+        try {
+            UUID deviceUuid = null;
+            if (deviceIdStr != null && !deviceIdStr.isBlank()) {
+                try {
+                    deviceUuid = UUID.fromString(deviceIdStr.trim());
+                } catch (Exception ignored) {}
+            }
+            if (deviceUuid == null && servletRequest != null) {
+                String headerDevId = servletRequest.getHeader("X-Device-Id");
+                if (headerDevId != null && !headerDevId.isBlank()) {
+                    try {
+                        deviceUuid = UUID.fromString(headerDevId.trim());
+                    } catch (Exception ignored) {}
+                }
+            }
+            if (deviceUuid == null) {
+                deviceUuid = UUID.randomUUID();
+            }
+
+            if ((deviceName == null || deviceName.isBlank()) && servletRequest != null) {
+                deviceName = servletRequest.getHeader("X-Device-Name");
+            }
+            if ((platform == null || platform.isBlank()) && servletRequest != null) {
+                platform = servletRequest.getHeader("X-Device-Platform");
+            }
+            if ((browser == null || browser.isBlank()) && servletRequest != null) {
+                browser = servletRequest.getHeader("X-Device-Browser");
+            }
+            if (ipAddress == null && servletRequest != null) {
+                ipAddress = servletRequest.getHeader("X-Forwarded-For");
+                if (ipAddress == null || ipAddress.isBlank()) {
+                    ipAddress = servletRequest.getRemoteAddr();
+                }
+            }
+
+            linkedDeviceService.registerOrUpdateDevice(user, deviceUuid, deviceName, platform, browser, ipAddress);
+        } catch (Exception e) {
+            log.warn("Failed to record device session: {}", e.getMessage());
+        }
     }
 
     private AuthResponse createAuthResponse(User user) {

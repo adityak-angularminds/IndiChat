@@ -201,11 +201,11 @@ class SettingsService {
         const mappedDevices: LinkedDevice[] = backendDevices.map((d: any) => ({
           id: d.id,
           name: d.name || d.deviceName,
-          platform: d.platform || 'web',
+          platform: (d.platform || 'web').toLowerCase() as any,
           browser: d.browser || 'Browser Session',
           location: d.location || 'Pune, India',
           ipAddress: d.ipAddress || '192.168.1.100',
-          lastActive: d.isCurrent ? 'Active now' : 'Recently active',
+          lastActive: d.lastActive || (d.isCurrent ? 'Active now' : 'Recently active'),
           isCurrent: Boolean(d.isCurrent),
         }));
         this.updateLocal({ linkedDevices: mappedDevices });
@@ -291,7 +291,7 @@ class SettingsService {
     this.update({ linkedDevices: filtered });
 
     const token = localStorage.getItem('chat_access_token');
-    if (token && !deviceId.startsWith('dev-')) {
+    if (token) {
       try {
         await api.removeLinkedDevice(deviceId);
       } catch (err) {

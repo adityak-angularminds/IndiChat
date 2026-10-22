@@ -19,8 +19,10 @@ export interface AuthTokens {
     expiresIn: number;
 }
 export interface AuthResponse {
-    tokens: AuthTokens;
-    user: User;
+    tokens?: AuthTokens;
+    user?: User;
+    requiresTwoFactor?: boolean;
+    message?: string;
 }
 export interface RegisterRequest {
     phoneNumber?: string;
@@ -32,6 +34,11 @@ export interface RegisterRequest {
 export interface LoginRequest {
     usernameOrEmail: string;
     password: string;
+    twoFactorPin?: string;
+    deviceId?: string;
+    deviceName?: string;
+    platform?: string;
+    browser?: string;
 }
 export interface RefreshRequest {
     refreshToken: string;
