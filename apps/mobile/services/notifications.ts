@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -19,17 +21,17 @@ export async function registerForPushNotificationsAsync(
 ): Promise<string | null> {
   let token: string | null = null;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('chat-messages', {
-      name: 'Chat Messages',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#00a884',
-      sound: 'default',
-    });
-  }
-
   try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('chat-messages', {
+        name: 'Chat Messages',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#00a884',
+        sound: 'default',
+      });
+    }
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -75,20 +77,25 @@ export async function registerForPushNotificationsAsync(
 export function setupNotificationListeners(
   onNotificationTapped?: (data: Record<string, any>) => void
 ) {
-  const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
-    console.log('[Push] Notification received in foreground:', notification);
-  });
+  try {
+    const foregroundSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      console.log('[Push] Notification received in foreground:', notification);
+    });
 
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data;
-    console.log('[Push] User tapped notification with data:', data);
-    if (onNotificationTapped && data) {
-      onNotificationTapped(data);
-    }
-  });
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      console.log('[Push] User tapped notification with data:', data);
+      if (onNotificationTapped && data) {
+        onNotificationTapped(data);
+      }
+    });
 
-  return () => {
-    foregroundSubscription.remove();
-    responseSubscription.remove();
-  };
+    return () => {
+      foregroundSubscription?.remove?.();
+      responseSubscription?.remove?.();
+    };
+  } catch (err) {
+    console.warn('[Push] Setup notification listeners not available in this environment:', err);
+    return () => {};
+  }
 }
