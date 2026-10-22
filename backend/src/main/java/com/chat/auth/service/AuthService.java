@@ -100,10 +100,8 @@ public class AuthService {
             }
 
             String configuredPin = settings.getTwoFactorPin();
-            if (configuredPin != null && !configuredPin.isBlank()) {
-                if (!configuredPin.trim().equals(req.twoFactorPin().trim())) {
-                    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Incorrect 6-digit two-step verification PIN");
-                }
+            if (configuredPin == null || configuredPin.isBlank() || !configuredPin.trim().equals(req.twoFactorPin().trim())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Incorrect 6-digit two-step verification PIN");
             }
         }
 

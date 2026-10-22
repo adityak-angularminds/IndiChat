@@ -131,7 +131,13 @@ public class UserService {
             return new UserSettings(userId);
         });
         s.setTwoFactorEnabled(enabled);
-        if (pin != null) s.setTwoFactorPin(pin);
+        if (enabled) {
+            if (pin != null && !pin.isBlank()) {
+                s.setTwoFactorPin(pin.trim());
+            }
+        } else {
+            s.setTwoFactorPin(null);
+        }
         s.setUpdatedAt(Instant.now());
         settingsRepository.save(s);
     }

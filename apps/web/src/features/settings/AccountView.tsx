@@ -282,7 +282,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
         isOpen={showTwoFactorModal}
         onClose={() => setShowTwoFactorModal(false)}
         enabled={settings.twoFactorEnabled}
-        onUpdate={(val) => settingsService.update({ twoFactorEnabled: val })}
+        onUpdate={(val, pin) => settingsService.update({ twoFactorEnabled: val, twoFactorPin: pin })}
       />
 
       {/* Edit Email Modal */}

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, ShieldAlert, KeyRound, Check, AlertCircle } from 'lucide-react';
 import { settingsService } from '../../services/settings';
+import { api } from '../../services/api';
 
 interface TwoFactorModalProps {
   isOpen: boolean;
   onClose: () => void;
   enabled: boolean;
-  onUpdate: (enabled: boolean) => void;
+  onUpdate: (enabled: boolean, pin?: string) => void;
 }
 
 export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({
@@ -34,19 +35,26 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({
     setStep(2);
   };
 
-  const handleConfirmPin = (e: React.FormEvent) => {
+  const handleConfirmPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (confirmPin !== pin) {
       setError('PINs do not match. Please try again.');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      // 1. Persist directly to backend /api/v1/users/me/2fa
+      await api.updateTwoFactor(true, pin);
+
+      // 2. Persist locally and to settings
       settingsService.update({
         twoFactorEnabled: true,
         twoFactorPin: pin,
       });
-      onUpdate(true);
+      onUpdate(true, pin);
+
       setLoading(false);
       setSuccess(true);
       setTimeout(() => {
@@ -56,17 +64,27 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({
         setPin('');
         setConfirmPin('');
       }, 1500);
-    }, 800);
+    } catch (err: any) {
+      console.error('Failed to enable 2FA on backend:', err);
+      setError(err?.message || 'Failed to enable two-step verification. Please try again.');
+      setLoading(false);
+    }
   };
 
-  const handleDisable = () => {
+  const handleDisable = async () => {
     if (confirm('Are you sure you want to turn off two-step verification?')) {
-      settingsService.update({
-        twoFactorEnabled: false,
-        twoFactorPin: '',
-      });
-      onUpdate(false);
-      onClose();
+      try {
+        await api.updateTwoFactor(false, '');
+        settingsService.update({
+          twoFactorEnabled: false,
+          twoFactorPin: '',
+        });
+        onUpdate(false, '');
+        onClose();
+      } catch (err: any) {
+        console.error('Failed to disable 2FA on backend:', err);
+        alert(err?.message || 'Failed to turn off two-step verification.');
+      }
     }
   };
 

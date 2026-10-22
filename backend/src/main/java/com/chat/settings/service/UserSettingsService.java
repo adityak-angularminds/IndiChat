@@ -47,8 +47,19 @@ public class UserSettingsService {
         });
 
         if (request.passkeyEnabled() != null) s.setPasskeyEnabled(request.passkeyEnabled());
-        if (request.twoFactorEnabled() != null) s.setTwoFactorEnabled(request.twoFactorEnabled());
-        if (request.twoFactorPin() != null) s.setTwoFactorPin(request.twoFactorPin());
+        if (request.twoFactorEnabled() != null) {
+            s.setTwoFactorEnabled(request.twoFactorEnabled());
+            if (!request.twoFactorEnabled()) {
+                s.setTwoFactorPin(null);
+            }
+        }
+        if (request.twoFactorPin() != null) {
+            if (request.twoFactorPin().isBlank()) {
+                s.setTwoFactorPin(null);
+            } else {
+                s.setTwoFactorPin(request.twoFactorPin().trim());
+            }
+        }
         if (request.securityNotifications() != null) s.setSecurityNotifications(request.securityNotifications());
         if (request.statusAbout() != null) s.setStatusAbout(request.statusAbout());
         if (request.privacyLastSeen() != null) s.setPrivacyLastSeen(request.privacyLastSeen());
