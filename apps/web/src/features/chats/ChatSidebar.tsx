@@ -115,11 +115,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   function renderMessageSnippet(msg: Conversation['lastMessage']): string {
     if (!msg) return 'No messages yet';
+    if (msg.type === 'STICKER') {
+      return '🏷️ Sticker';
+    }
     if (msg.type === 'IMAGE') {
       try {
         const data = JSON.parse(msg.content);
+        if (data.isGif || data.fileName?.toLowerCase().endsWith('.gif') || data.fileUrl?.toLowerCase().includes('.gif')) {
+          return '🎞️ GIF';
+        }
         return data.caption ? `📷 ${data.caption}` : '📷 Photo';
       } catch {
+        if (msg.content?.toLowerCase().includes('.gif')) {
+          return '🎞️ GIF';
+        }
         return '📷 Photo';
       }
     }
