@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Database, Download, FileText, Check, RefreshCw, AlertCircle, Copy, Eye } from 'lucide-react';
 import { Conversation, Message, User } from '@chat/shared-types';
 import { settingsService } from '../../services/settings';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface ChatBackupModalProps {
   isOpen: boolean;
@@ -108,8 +110,10 @@ export const ChatBackupModal: React.FC<ChatBackupModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const dateTag = new Date().toISOString().split('T')[0];
+    const prefix = APP_NAME.toLowerCase().replace(/[^a-z0-9]/g, '_');
     link.href = url;
-    link.download = `whatsapp_chat_backup_${dateTag}.json`;
+    link.download = `${prefix}_chat_backup_${dateTag}.json`;
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -9,6 +9,8 @@ import { MediaLightboxModal } from './MediaLightboxModal';
 import { EmojiPicker, MediaPickerMode } from './EmojiPicker';
 import { getGiphyFallbacks } from './gifData';
 import { settingsService } from '../../services/settings';
+import { APP_NAME } from '../../config/appConfig';
+
 import {
   Send,
   Paperclip,
@@ -180,7 +182,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="empty-chat-icon">
             <Users size={48} />
           </div>
-          <h1 className="empty-chat-title">WhatsApp Web</h1>
+          <h1 className="empty-chat-title">{APP_NAME} Web</h1>
           <p className="empty-chat-desc">
             Send and receive real-time messages with end-to-end reliability.
             Select a conversation on the left or click the new chat button to begin.

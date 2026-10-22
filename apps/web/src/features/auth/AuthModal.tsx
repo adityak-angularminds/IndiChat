@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { AuthResponse } from '@chat/shared-types';
 import { MessageSquare, ShieldCheck, ArrowLeft, KeyRound } from 'lucide-react';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface AuthModalProps {
   onAuthenticated: (response: AuthResponse) => void;
@@ -296,7 +298,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
                 <MessageSquare size={32} />
               </div>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                WhatsApp Messenger
+                {APP_NAME} Messenger
               </h2>
               <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                 {isRegister ? 'Create an account to start messaging' : 'Sign in to your account'}

@@ -19,6 +19,8 @@ import { AccountView } from './AccountView';
 import { PrivacyView } from './PrivacyView';
 import { ChatsSettingsView } from './ChatsSettingsView';
 import { AppLanguageView } from './AppLanguageView';
+import { APP_NAME } from '../../config/appConfig';
+
 
 export type SettingsSubView =
   | 'menu'
@@ -282,8 +284,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {t('logout')}
                   </span>
                   <span className="settings-item-subtitle">
-                    Sign out of your WhatsApp account
+                    Sign out of your {APP_NAME} account
                   </span>
+
                 </div>
                 <ChevronRight size={18} color="var(--text-muted)" />
               </div>

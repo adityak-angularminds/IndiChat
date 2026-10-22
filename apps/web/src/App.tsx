@@ -14,8 +14,10 @@ import { generateUUID } from './utils/uuid';
 import { resetDeviceId } from './utils/device';
 import { settingsService } from './services/settings';
 import { SessionRevokedModal } from './features/auth/SessionRevokedModal';
+import { APP_NAME, APP_FULL_TITLE } from './config/appConfig';
 
 export const App: React.FC = () => {
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -37,10 +39,15 @@ export const App: React.FC = () => {
     isIncoming: boolean;
   } | null>(null);
 
-  // Initialize theme
+  // Initialize theme and title
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.title = APP_FULL_TITLE;
+  }, []);
+
 
   // Prompt notification allow popup on opening website if not yet granted (only when user is logged in)
   useEffect(() => {
@@ -486,7 +493,7 @@ export const App: React.FC = () => {
             <span className="typing-dot" />
             <span className="typing-dot" />
           </div>
-          <div>Loading WhatsApp...</div>
+          <div>Loading {APP_NAME}...</div>
         </div>
       </div>
     );

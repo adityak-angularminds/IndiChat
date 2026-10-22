@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { notificationService, NotificationPermissionStatus } from '../../services/notifications';
 import { SettingsView, SettingsSubView } from '../settings/SettingsView';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface ChatSidebarProps {
   currentUser: User;
@@ -63,7 +65,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     }
 
     if (notificationStatus === 'granted') {
-      notificationService.showNotification('WhatsApp Notifications', {
+      notificationService.showNotification(`${APP_NAME} Notifications`, {
         body: 'Push notifications are enabled and active!',
         username: currentUser.username || currentUser.displayName,
       });
@@ -78,11 +80,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const res = await notificationService.requestPermission();
     setNotificationStatus(res);
     if (res === 'granted') {
-      notificationService.showNotification('WhatsApp Notifications Active', {
+      notificationService.showNotification(`${APP_NAME} Notifications Active`, {
         body: 'You will now receive desktop alerts for incoming messages.',
         username: currentUser.username || currentUser.displayName,
       });
     }
+
   };
 
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Smartphone, QrCode, Key, Check, ShieldCheck, RefreshCw } from 'lucide-react';
 import { settingsService } from '../../services/settings';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface LinkDeviceModalProps {
   isOpen: boolean;
@@ -39,9 +41,10 @@ export const LinkDeviceModal: React.FC<LinkDeviceModalProps> = ({ isOpen, onClos
       const names: Record<string, string> = {
         windows: 'Windows PC (Chrome 125)',
         mac: 'MacBook Pro (Safari 17.5)',
-        android: 'Samsung Galaxy S24 (WhatsApp Web)',
+        android: `Samsung Galaxy S24 (${APP_NAME} Web)`,
         ios: 'iPad Pro (Safari)',
       };
+
 
       settingsService.addLinkedDevice({
         name: names[chosenPlatform],
@@ -96,8 +99,9 @@ export const LinkDeviceModal: React.FC<LinkDeviceModalProps> = ({ isOpen, onClos
               </div>
               <h4 style={{ fontSize: '1.15rem', marginBottom: '8px' }}>Device Linked!</h4>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                Your new device is now securely connected to this WhatsApp account.
+                Your new device is now securely connected to this {APP_NAME} account.
               </p>
+
             </div>
           ) : (
             <>
@@ -180,10 +184,10 @@ export const LinkDeviceModal: React.FC<LinkDeviceModalProps> = ({ isOpen, onClos
 
                   <div className="link-instructions">
                     <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                      To use WhatsApp on your devices:
+                      To use {APP_NAME} on your devices:
                     </p>
                     <ol style={{ paddingLeft: '18px', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.7' }}>
-                      <li>Open WhatsApp on your mobile phone</li>
+                      <li>Open {APP_NAME} on your mobile phone</li>
                       <li>Tap <strong>Settings</strong> or <strong>Menu</strong> &gt; <strong>Linked Devices</strong></li>
                       <li>Tap <strong>Link a device</strong> and point your camera here</li>
                     </ol>
@@ -219,7 +223,7 @@ export const LinkDeviceModal: React.FC<LinkDeviceModalProps> = ({ isOpen, onClos
 
                   <div className="link-instructions">
                     <ol style={{ paddingLeft: '18px', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.7' }}>
-                      <li>Open WhatsApp on your phone &gt; <strong>Linked Devices</strong></li>
+                      <li>Open {APP_NAME} on your phone &gt; <strong>Linked Devices</strong></li>
                       <li>Tap <strong>Link with phone number instead</strong></li>
                       <li>Type the 8-character code shown above into your phone</li>
                     </ol>

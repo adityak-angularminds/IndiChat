@@ -1,5 +1,7 @@
 import { api } from './api';
 import { generateUUID } from '../utils/uuid';
+import { APP_NAME } from '../config/appConfig';
+
 
 const DEVICE_TOKEN_KEY = 'chat_web_device_token';
 const PROMPT_DISMISSED_KEY = 'chat_notification_prompt_dismissed';
@@ -103,11 +105,12 @@ export class NotificationService {
         this.setDismissed(false);
         await this.syncDeviceToken();
         // Immediately trigger a welcome notification on the web browser
-        this.showNotification('WhatsApp Web', {
+        this.showNotification(`${APP_NAME} Web`, {
           body: '🎉 Notifications enabled! You will now receive alerts for incoming messages.',
           tag: 'welcome-notification',
-          username: 'W',
+          username: APP_NAME.charAt(0) || 'I',
         });
+
       }
       return permission;
     } catch (error) {

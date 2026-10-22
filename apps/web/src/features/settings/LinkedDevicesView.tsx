@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { AppSettings, LinkedDevice, settingsService } from '../../services/settings';
 import { LinkDeviceModal } from './LinkDeviceModal';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface LinkedDevicesViewProps {
   settings: AppSettings;
@@ -65,11 +67,12 @@ export const LinkedDevicesView: React.FC<LinkedDevicesViewProps> = ({ settings, 
           <Monitor size={36} color="#00a884" />
         </div>
         <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginTop: '10px', color: 'var(--text-primary)' }}>
-          WhatsApp on all your devices
+          {APP_NAME} on all your devices
         </h3>
         <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', maxWidth: '300px', lineHeight: '1.4' }}>
-          Use WhatsApp on Web, Desktop, and tablets without keeping your phone online.
+          Use {APP_NAME} on Web, Desktop, and tablets without keeping your phone online.
         </p>
+
 
         <button
           className="btn btn-primary"

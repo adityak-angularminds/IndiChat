@@ -1,6 +1,8 @@
 import { generateUUID } from '../utils/uuid';
 import { getTranslation } from '../utils/i18n';
 import { api } from './api';
+import { APP_NAME } from '../config/appConfig';
+
 
 export type PrivacyOption = 'everyone' | 'contacts' | 'contacts_except' | 'nobody';
 export type OnlinePrivacyOption = 'everyone' | 'same_as_last_seen';
@@ -70,9 +72,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     {
       id: 'dev-windows',
-      name: 'WhatsApp for Windows',
+      name: `${APP_NAME} for Windows`,
       platform: 'windows',
-      browser: 'WhatsApp Desktop v2.24',
+      browser: `${APP_NAME} Desktop v2.24`,
       location: 'Mumbai, India',
       ipAddress: '49.36.120.45',
       lastActive: 'Today at 09:42 AM',
@@ -98,7 +100,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   phoneNumber: '+91 98765 43210',
   username: '',
   displayName: '',
-  statusAbout: 'Hey there! I am using WhatsApp.',
+  statusAbout: `Hey there! I am using ${APP_NAME}.`,
+
 
   privacyLastSeen: 'everyone',
   privacyOnline: 'everyone',

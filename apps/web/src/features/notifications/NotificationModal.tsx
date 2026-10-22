@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Bell, BellRing, BellOff, X, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { notificationService, NotificationPermissionStatus } from '../../services/notifications';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -70,8 +72,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         <p className="notification-modal-desc">
           {currentStatus === 'denied'
             ? 'Browser notifications are currently blocked for this site. To receive message alerts, enable them in your browser site settings.'
-            : 'Get instant alerts on your desktop whenever you receive a new message or call, even when WhatsApp is in the background.'}
+            : `Get instant alerts on your desktop whenever you receive a new message or call, even when ${APP_NAME} is in the background.`}
         </p>
+
 
         {currentStatus === 'denied' ? (
           <div className="notification-denied-instructions">

@@ -26,7 +26,7 @@ export default function LoginScreen() {
           <View style={styles.logoBadge}>
             <Text style={styles.logoIcon}>💬</Text>
           </View>
-          <Text style={styles.title}>WhatsApp</Text>
+          <Text style={styles.title}>IndiChat</Text>
           <Text style={styles.subtitle}>
             {isRegister ? 'Create an account' : 'Sign in to your account'}
           </Text>

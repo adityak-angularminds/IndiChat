@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Fingerprint, ShieldCheck, Check, Trash2 } from 'lucide-react';
 import { settingsService } from '../../services/settings';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface PasskeyModalProps {
   isOpen: boolean;
@@ -107,9 +109,10 @@ export const PasskeyModal: React.FC<PasskeyModalProps> = ({
 
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.5', marginBottom: '20px' }}>
                 {passkeyEnabled
-                  ? 'Your biometric screen lock or security key is enabled for fast, passwordless login to your WhatsApp account.'
-                  : 'Log in to WhatsApp using your face, fingerprint, or device screen lock. Passkeys are securely stored in your password manager.'}
+                  ? `Your biometric screen lock or security key is enabled for fast, passwordless login to your ${APP_NAME} account.`
+                  : `Log in to ${APP_NAME} using your face, fingerprint, or device screen lock. Passkeys are securely stored in your password manager.`}
               </p>
+
 
               <div
                 style={{
