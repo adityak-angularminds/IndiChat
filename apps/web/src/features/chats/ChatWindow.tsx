@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Conversation, Message } from '@chat/shared-types';
+import { User, Conversation, Message, MessageType } from '@chat/shared-types';
 import { wsClient } from '../../services/websocket';
 import { soundEffects } from '../../services/audio';
+import { AttachmentMenu } from './AttachmentMenu';
+import { CameraModal } from './CameraModal';
+import { AttachmentPreviewModal, formatFileSize, getFileExtension, getFileIconAndBadgeColor } from './AttachmentPreviewModal';
+import { MediaLightboxModal } from './MediaLightboxModal';
+import { EmojiPicker } from './EmojiPicker';
 import {
   Send,
   Paperclip,
@@ -13,17 +18,46 @@ import {
   CheckCheck,
   Users,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Upload
 } from 'lucide-react';
 
 interface ChatWindowProps {
   currentUser: User;
   conversation: Conversation | null;
   messages: Message[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, type?: MessageType) => void;
   onBackToSidebar: () => void;
   typingUsers: Record<string, boolean>; // userId -> isTyping
   onStartCall: (targetUserId: string, isVideo: boolean) => void;
+}
+
+interface ParsedAttachment {
+  fileId?: string;
+  fileName: string;
+  fileType?: MessageType;
+  mimeType?: string;
+  fileSize?: number;
+  fileUrl: string;
+  caption?: string;
+}
+
+function parseAttachment(content: string): ParsedAttachment | null {
+  try {
+    const data = JSON.parse(content);
+    if (data && typeof data === 'object' && (data.fileUrl || data.fileName)) {
+      return data as ParsedAttachment;
+    }
+  } catch {
+    if (content.startsWith('http') || content.startsWith('/api/')) {
+      return {
+        fileUrl: content,
+        fileName: 'attachment',
+      };
+    }
+  }
+  return null;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -37,8 +71,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [lightboxMedia, setLightboxMedia] = useState<{
+    isOpen: boolean;
+    url: string;
+    type: 'IMAGE' | 'VIDEO';
+    fileName: string;
+    caption?: string;
+    senderName?: string;
+    timestamp?: string;
+  } | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+  const dragCounterRef = useRef<number>(0);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -58,6 +110,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       });
     }
   }, [conversation?.id, messages.length, currentUser.id]);
+
+  // Clipboard paste support (e.g. pasting screenshots or copied files directly)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (!conversation) return;
+      if (e.clipboardData && e.clipboardData.files.length > 0) {
+        e.preventDefault();
+        setSelectedFiles(Array.from(e.clipboardData.files));
+        setShowPreviewModal(true);
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [conversation]);
 
   if (!conversation) {
     return (
@@ -110,7 +177,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleSend = () => {
     if (!inputText.trim()) return;
-    onSendMessage(inputText.trim());
+    onSendMessage(inputText.trim(), 'TEXT');
     soundEffects.playOutgoingSent();
     setInputText('');
     wsClient.sendTyping(conversation.id, false);
@@ -122,7 +189,63 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleEmojiClick = (emoji: string) => {
     setInputText((prev) => prev + emoji);
-    setShowEmoji(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
+  const handleSelectFiles = (files: File[]) => {
+    setSelectedFiles(files);
+    setShowPreviewModal(true);
+  };
+
+  const handleCapturePhoto = (file: File) => {
+    setSelectedFiles([file]);
+    setShowPreviewModal(true);
+  };
+
+  const handleSendAttachment = async (payload: { content: string; messageType: MessageType }) => {
+    onSendMessage(payload.content, payload.messageType);
+    soundEffects.playOutgoingSent();
+    setShowPreviewModal(false);
+    setSelectedFiles([]);
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      setIsDragging(false);
+      dragCounterRef.current = 0;
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounterRef.current = 0;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setSelectedFiles(Array.from(e.dataTransfer.files));
+      setShowPreviewModal(true);
+    }
   };
 
   function formatMessageTime(isoStr: string): string {
@@ -173,8 +296,149 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     );
   }
 
+  const renderMessageContent = (msg: Message) => {
+    if (msg.type === 'IMAGE') {
+      const att = parseAttachment(msg.content);
+      const imgUrl = att?.fileUrl || msg.content;
+      const caption = att?.caption;
+      const fileName = att?.fileName || 'image.jpg';
+      const senderName = msg.sender?.displayName || msg.sender?.username || 'Photo';
+
+      return (
+        <div className="message-image-bubble">
+          <div
+            className="message-image-container"
+            onClick={() =>
+              setLightboxMedia({
+                isOpen: true,
+                url: imgUrl,
+                type: 'IMAGE',
+                fileName,
+                caption,
+                senderName,
+                timestamp: formatMessageTime(msg.createdAt),
+              })
+            }
+          >
+            <img src={imgUrl} alt={fileName} className="message-image-content" loading="lazy" />
+            <div className="message-image-overlay">
+              <span className="view-fullscreen-hint">Click to enlarge</span>
+            </div>
+          </div>
+          {caption && <div className="message-attachment-caption">{caption}</div>}
+        </div>
+      );
+    }
+
+    if (msg.type === 'VIDEO') {
+      const att = parseAttachment(msg.content);
+      const videoUrl = att?.fileUrl || msg.content;
+      const caption = att?.caption;
+      const fileName = att?.fileName || 'video.mp4';
+      const senderName = msg.sender?.displayName || msg.sender?.username || 'Video';
+
+      return (
+        <div className="message-video-bubble">
+          <video
+            src={videoUrl}
+            controls
+            preload="metadata"
+            className="message-video-content"
+            onClick={(e) => {
+              // Double click or button for lightbox
+              if (e.detail === 2) {
+                setLightboxMedia({
+                  isOpen: true,
+                  url: videoUrl,
+                  type: 'VIDEO',
+                  fileName,
+                  caption,
+                  senderName,
+                  timestamp: formatMessageTime(msg.createdAt),
+                });
+              }
+            }}
+          />
+          {caption && <div className="message-attachment-caption">{caption}</div>}
+        </div>
+      );
+    }
+
+    if (msg.type === 'AUDIO') {
+      const att = parseAttachment(msg.content);
+      const audioUrl = att?.fileUrl || msg.content;
+
+      return (
+        <div className="message-audio-bubble">
+          <audio src={audioUrl} controls className="message-audio-content" />
+        </div>
+      );
+    }
+
+    if (msg.type === 'DOCUMENT') {
+      const att = parseAttachment(msg.content);
+      const fileUrl = att?.fileUrl || msg.content;
+      const fileName = att?.fileName || 'Document';
+      const fileSize = att?.fileSize ? formatFileSize(att.fileSize) : '';
+      const caption = att?.caption;
+      const ext = getFileExtension(fileName);
+      const { icon: DocIcon, color: badgeColor } = getFileIconAndBadgeColor(ext);
+
+      const downloadUrl = fileUrl.includes('?') ? `${fileUrl}&download=true` : `${fileUrl}?download=true`;
+
+      return (
+        <div className="message-document-bubble">
+          <a
+            href={downloadUrl}
+            download={fileName}
+            className="document-card-link"
+            title={`Download ${fileName}`}
+          >
+            <div className="doc-icon-badge" style={{ borderColor: badgeColor }}>
+              <DocIcon size={26} color={badgeColor} />
+              <span className="doc-ext-tag" style={{ backgroundColor: badgeColor }}>
+                {ext}
+              </span>
+            </div>
+            <div className="doc-details">
+              <span className="doc-name">{fileName}</span>
+              <div className="doc-meta">
+                {fileSize && <span>{fileSize} • </span>}
+                <span>{ext} File</span>
+              </div>
+            </div>
+            <div className="doc-download-btn" title="Download file">
+              <Download size={18} />
+            </div>
+          </a>
+          {caption && <div className="message-attachment-caption">{caption}</div>}
+        </div>
+      );
+    }
+
+    // Default TEXT message
+    return <span className="message-text">{msg.content}</span>;
+  };
+
   return (
-    <main className="chat-area">
+    <main
+      className="chat-area"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag & Drop Visual Overlay */}
+      {isDragging && (
+        <div className="chat-drag-drop-overlay">
+          <div className="drag-drop-card">
+            <Upload size={48} color="#00a884" />
+            <h3>Drop files here</h3>
+            <p>Send photos, videos, documents, or any file format</p>
+          </div>
+        </div>
+      )}
+
       {/* Chat Header */}
       <header className="chat-header">
         <div className="chat-header-info">
@@ -235,19 +499,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
         {messages.map((msg) => {
           const isOutgoing = msg.senderId === currentUser.id;
+          const isMedia = msg.type === 'IMAGE' || msg.type === 'VIDEO';
 
           return (
             <div
               key={msg.id || msg.clientMessageId}
               className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'}`}
             >
-              <div className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'}`}>
+              <div
+                className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'} ${
+                  isMedia ? 'has-media' : ''
+                } ${msg.type === 'DOCUMENT' ? 'has-document' : ''}`}
+              >
                 {!isOutgoing && conversation.type === 'GROUP' && (
                   <div className="message-sender-name">
                     {msg.sender?.displayName || msg.sender?.username}
                   </div>
                 )}
-                <span className="message-text">{msg.content}</span>
+                {renderMessageContent(msg)}
                 <div className="message-meta">
                   <span className="message-time">{formatMessageTime(msg.createdAt)}</span>
                   {renderReceiptStatus(msg)}
@@ -261,38 +530,50 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Emoji Picker Popup */}
       {showEmoji && (
-        <div style={{
-          position: 'absolute',
-          bottom: '70px',
-          left: '20px',
-          backgroundColor: 'var(--bg-chat-header)',
-          borderRadius: '12px',
-          padding: '12px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(6, 1fr)',
-          gap: '8px',
-          boxShadow: 'var(--shadow-lg)',
-          zIndex: 100,
-          border: '1px solid var(--border-color)'
-        }}>
-          {['😀', '😂', '😍', '👍', '❤️', '🔥', '🎉', '🙏', '🚀', '✨', '👋', '😎'].map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => handleEmojiClick(emoji)}
-              style={{
-                fontSize: '1.4rem',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '6px'
-              }}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
+        <EmojiPicker
+          onSelectEmoji={handleEmojiClick}
+          onClose={() => setShowEmoji(false)}
+        />
+      )}
+
+      {/* WhatsApp Web Attachment Flyout Menu */}
+      <AttachmentMenu
+        isOpen={showAttachmentMenu}
+        onClose={() => setShowAttachmentMenu(false)}
+        onSelectFiles={handleSelectFiles}
+        onOpenCamera={() => setShowCameraModal(true)}
+      />
+
+      {/* WhatsApp Web Camera Modal */}
+      <CameraModal
+        isOpen={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onCapturePhoto={handleCapturePhoto}
+      />
+
+      {/* WhatsApp Web Attachment Staging Preview Modal */}
+      <AttachmentPreviewModal
+        isOpen={showPreviewModal}
+        files={selectedFiles}
+        onClose={() => {
+          setShowPreviewModal(false);
+          setSelectedFiles([]);
+        }}
+        onSendAttachment={handleSendAttachment}
+      />
+
+      {/* Fullscreen Media Lightbox Modal */}
+      {lightboxMedia && (
+        <MediaLightboxModal
+          isOpen={lightboxMedia.isOpen}
+          mediaUrl={lightboxMedia.url}
+          mediaType={lightboxMedia.type}
+          fileName={lightboxMedia.fileName}
+          caption={lightboxMedia.caption}
+          senderName={lightboxMedia.senderName}
+          timestamp={lightboxMedia.timestamp}
+          onClose={() => setLightboxMedia(null)}
+        />
       )}
 
       {/* Chat Input Bar */}
@@ -305,17 +586,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         >
           <Smile size={22} />
         </button>
+
         <button
-          className="icon-btn"
-          title="Attach media or document"
+          className={`icon-btn ${showAttachmentMenu ? 'active' : ''}`}
+          title="Attach files, photos, camera"
           aria-label="Attach"
-          onClick={() => alert('Media attachments ready for S3 / MinIO pre-signed URL upload.')}
+          onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
         >
           <Paperclip size={20} />
         </button>
 
         <div className="input-box-wrapper">
           <textarea
+            ref={textareaRef}
             className="chat-textarea"
             placeholder="Type a message"
             rows={1}

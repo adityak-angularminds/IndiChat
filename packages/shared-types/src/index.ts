@@ -86,6 +86,25 @@ export interface Message {
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
+export interface FileAttachmentInfo {
+  fileId?: string;
+  fileName: string;
+  fileType: MessageType;
+  mimeType: string;
+  fileSize: number;
+  fileUrl: string;
+  caption?: string;
+}
+
+export interface FileUploadResponse {
+  fileId: string;
+  fileName: string;
+  fileType: MessageType;
+  mimeType: string;
+  fileSize: number;
+  fileUrl: string;
+}
+
 export interface Conversation {
   id: UUID;
   type: ConversationType;

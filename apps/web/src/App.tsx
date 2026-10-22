@@ -3,7 +3,7 @@ import { api } from './services/api';
 import { wsClient } from './services/websocket';
 import { soundEffects } from './services/audio';
 import { notificationService } from './services/notifications';
-import { User, Conversation, Message, MessageReceipt, AuthResponse } from '@chat/shared-types';
+import { User, Conversation, Message, MessageReceipt, AuthResponse, MessageType } from '@chat/shared-types';
 import { ChatSidebar } from './features/chats/ChatSidebar';
 import { ChatWindow } from './features/chats/ChatWindow';
 import { AuthModal } from './features/auth/AuthModal';
@@ -133,7 +133,34 @@ export const App: React.FC = () => {
         const senderName = msg.sender?.displayName || msg.sender?.username || 'New Message';
         const conv = conversations.find((c) => c.id === msg.conversationId);
         const title = conv?.type === 'GROUP' ? (conv.title || 'Group Chat') : senderName;
-        const body = conv?.type === 'GROUP' ? `${senderName}: ${msg.content}` : msg.content;
+
+        let previewText = msg.content;
+        if (msg.type === 'IMAGE') {
+          try {
+            const data = JSON.parse(msg.content);
+            previewText = data.caption ? `📷 ${data.caption}` : '📷 Photo';
+          } catch {
+            previewText = '📷 Photo';
+          }
+        } else if (msg.type === 'VIDEO') {
+          try {
+            const data = JSON.parse(msg.content);
+            previewText = data.caption ? `🎥 ${data.caption}` : '🎥 Video';
+          } catch {
+            previewText = '🎥 Video';
+          }
+        } else if (msg.type === 'AUDIO') {
+          previewText = '🎵 Audio';
+        } else if (msg.type === 'DOCUMENT') {
+          try {
+            const data = JSON.parse(msg.content);
+            previewText = `📄 ${data.fileName || 'Document'}`;
+          } catch {
+            previewText = '📄 Document';
+          }
+        }
+
+        const body = conv?.type === 'GROUP' ? `${senderName}: ${previewText}` : previewText;
 
         notificationService.showNotification(title, {
           body,
@@ -269,7 +296,7 @@ export const App: React.FC = () => {
     setMessages([]);
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, messageType: MessageType = 'TEXT') => {
     if (!currentUser || !activeConversationId) return;
 
     const clientMsgId = generateUUID();
@@ -278,7 +305,7 @@ export const App: React.FC = () => {
       conversationId: activeConversationId,
       senderId: currentUser.id,
       clientMessageId: clientMsgId,
-      type: 'TEXT',
+      type: messageType,
       content,
       createdAt: new Date().toISOString(),
       sender: currentUser,
@@ -292,7 +319,7 @@ export const App: React.FC = () => {
     const payload = {
       conversationId: activeConversationId,
       clientMessageId: clientMsgId,
-      messageType: 'TEXT' as const,
+      messageType,
       content,
     };
 

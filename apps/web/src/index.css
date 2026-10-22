@@ -1135,7 +1135,1162 @@ html, body, #root {
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ==========================================================================
+   WhatsApp Web Attachment Flyout Menu
+   ========================================================================== */
+.whatsapp-attachment-menu {
+  position: absolute;
+  bottom: 74px;
+  left: 56px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 16px;
+  z-index: 100;
+  animation: attachmentFlyout 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes attachmentFlyout {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.attachment-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  position: relative;
+  transition: transform var(--transition-fast);
+}
+
+.attachment-menu-item:hover {
+  transform: translateX(3px);
+}
+
+.attachment-icon-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.attachment-menu-item:hover .attachment-icon-btn {
+  transform: scale(1.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.attachment-icon-btn.document {
+  background: linear-gradient(135deg, #7f66ff, #5f48e0);
+}
+
+.attachment-icon-btn.media {
+  background: linear-gradient(135deg, #007bfc, #0056b3);
+}
+
+.attachment-icon-btn.camera {
+  background: linear-gradient(135deg, #ec407a, #d81b60);
+}
+
+.attachment-item-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--bg-chat-header);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   WhatsApp Web Camera Modal
+   ========================================================================== */
+.whatsapp-camera-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 20, 26, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 200ms ease-out;
+}
+
+.whatsapp-camera-modal {
+  width: 100%;
+  max-width: 680px;
+  background-color: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.whatsapp-camera-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background-color: var(--bg-chat-header);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.camera-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.whatsapp-camera-body {
+  position: relative;
+  background: #000;
+  min-height: 420px;
+  max-height: 65vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.camera-stream-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-video-stream {
+  width: 100%;
+  max-height: 520px;
+  object-fit: cover;
+}
+
+.camera-video-stream.mirrored {
+  transform: scaleX(-1);
+}
+
+.camera-preview-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.camera-captured-image {
+  max-width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+}
+
+.camera-error-container {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.camera-error-container h3 {
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  margin-top: 8px;
+}
+
+.camera-error-container p {
+  font-size: 0.9rem;
+  max-width: 380px;
+}
+
+.whatsapp-camera-footer {
+  padding: 16px 24px;
+  background-color: var(--bg-chat-header);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-shutter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 280px;
+}
+
+.camera-shutter-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-full);
+  border: 4px solid #ffffff;
+  background: transparent;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-fast);
+}
+
+.camera-shutter-btn:hover {
+  transform: scale(1.06);
+}
+
+.camera-shutter-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+}
+
+.camera-switch-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.camera-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  justify-content: center;
+}
+
+.camera-retake-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background var(--transition-fast);
+}
+
+.camera-retake-btn:hover {
+  background: var(--bg-hover);
+}
+
+.camera-use-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--accent-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background var(--transition-fast);
+}
+
+.camera-use-btn:hover {
+  background: var(--accent-primary-hover);
+}
+
+/* ==========================================================================
+   WhatsApp Web Attachment Staging Preview Screen
+   ========================================================================== */
+.whatsapp-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 20, 26, 0.94);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 180ms ease-out;
+}
+
+.whatsapp-preview-modal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.whatsapp-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: rgba(32, 44, 51, 0.6);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.whatsapp-preview-header-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.preview-filename {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-filesize {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.preview-counter {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.whatsapp-preview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: auto;
+}
+
+.preview-media-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 85%;
+  max-height: 60vh;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+}
+
+.preview-video {
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+}
+
+.preview-document-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 40px 32px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+
+.preview-file-icon-box {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  border: 2px dashed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.preview-extension-badge {
+  position: absolute;
+  bottom: -8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.preview-doc-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.preview-doc-size {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.preview-note {
+  font-size: 0.78rem;
+  color: var(--accent-primary);
+  margin-top: 14px;
+}
+
+.preview-thumbnails-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 24px;
+  overflow-x: auto;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.preview-thumb-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--bg-chat-header);
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color var(--transition-fast);
+}
+
+.preview-thumb-btn.selected {
+  border-color: var(--accent-primary);
+}
+
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-doc {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.preview-emoji-picker {
+  position: absolute;
+  bottom: 84px;
+  left: 32px;
+  background-color: var(--bg-chat-header);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 1010;
+  border: 1px solid var(--border-color);
+}
+
+.preview-emoji-btn {
+  font-size: 1.3rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.preview-emoji-btn:hover {
+  background: var(--bg-hover);
+}
+
+.whatsapp-preview-footer {
+  padding: 14px 24px;
+  background: var(--bg-chat-header);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-input-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-card);
+  border-radius: var(--radius-full);
+  padding: 4px 14px;
+  border: 1px solid var(--border-color);
+}
+
+.preview-emoji-toggle {
+  margin-right: 4px;
+}
+
+.preview-caption-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  padding: 8px 0;
+}
+
+.preview-caption-input::placeholder {
+  color: var(--text-muted);
+}
+
+.whatsapp-preview-send-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.whatsapp-preview-send-btn:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  transform: scale(1.05);
+}
+
+.whatsapp-preview-send-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: var(--radius-full);
+  animation: spin 800ms linear infinite;
+}
+
+.preview-error-toast {
+  position: absolute;
+  top: 16px;
+  background-color: var(--accent-danger);
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  font-size: 0.88rem;
+  box-shadow: var(--shadow-md);
+  z-index: 1005;
+}
+
+/* ==========================================================================
+   Chat Message Attachment Card Styles
+   ========================================================================== */
+.message-bubble.has-media {
+  padding: 4px 4px 6px 4px;
+  max-width: 360px;
+}
+
+.message-bubble.has-document {
+  padding: 6px 6px 6px 6px;
+  max-width: 380px;
+}
+
+.message-image-bubble {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-image-container {
+  position: relative;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.message-image-content {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  transition: transform var(--transition-fast);
+}
+
+.message-image-container:hover .message-image-content {
+  transform: scale(1.02);
+}
+
+.message-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--transition-fast);
+}
+
+.message-image-container:hover .message-image-overlay {
+  opacity: 1;
+}
+
+.view-fullscreen-hint {
+  font-size: 0.75rem;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.message-video-bubble {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-video-content {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 6px;
+  outline: none;
+}
+
+.message-audio-bubble {
+  padding: 4px;
+}
+
+.message-audio-content {
+  width: 100%;
+  max-width: 290px;
+}
+
+.message-document-bubble {
+  display: flex;
+  flex-direction: column;
+}
+
+.document-card-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.16);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--transition-fast);
+}
+
+[data-theme="light"] .document-card-link {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.document-card-link:hover {
+  background: rgba(0, 0, 0, 0.26);
+}
+
+.doc-icon-badge {
+  position: relative;
+  width: 44px;
+  height: 48px;
+  border-radius: 6px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.doc-ext-tag {
+  position: absolute;
+  bottom: -4px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.doc-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.doc-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.doc-download-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.document-card-link:hover .doc-download-btn {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.message-attachment-caption {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  padding: 6px 8px 2px 8px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   Fullscreen Lightbox Viewer
+   ========================================================================== */
+.whatsapp-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 20, 26, 0.96);
+  backdrop-filter: blur(12px);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 180ms ease-out;
+}
+
+.whatsapp-lightbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: rgba(32, 44, 51, 0.7);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.lightbox-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.lightbox-sender {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lightbox-time {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.lightbox-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.whatsapp-lightbox-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.lightbox-image {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  user-select: none;
+}
+
+.lightbox-video {
+  max-width: 90vw;
+  max-height: 80vh;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+}
+
+.lightbox-caption-bar {
+  margin-top: 16px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  color: #ffffff;
+  max-width: 600px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Chat Drag and Drop Zone
+   ========================================================================== */
+.chat-drag-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(11, 20, 26, 0.88);
+  backdrop-filter: blur(6px);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: fadeIn 150ms ease-out;
+}
+
+.drag-drop-card {
+  border: 3px dashed var(--accent-primary);
+  border-radius: 24px;
+  padding: 60px 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  background: rgba(0, 168, 132, 0.06);
+}
+
+.drag-drop-card h3 {
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.drag-drop-card p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   Complete WhatsApp Web Emoji Picker Styles
+   ========================================================================== */
+@keyframes emojiPop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.whatsapp-emoji-picker {
+  position: absolute;
+  bottom: 74px;
+  left: 20px;
+  width: 380px;
+  max-width: calc(100vw - 36px);
+  height: 420px;
+  max-height: 60vh;
+  background-color: var(--bg-chat-header);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 1050;
+  overflow: hidden;
+  animation: emojiPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.emoji-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-chat-header);
+}
+
+.emoji-search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-card);
+  border-radius: 8px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.emoji-search-box:focus-within {
+  border-color: var(--accent-primary);
+}
+
+.emoji-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.emoji-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+
+.emoji-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.emoji-search-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.emoji-search-clear:hover {
+  color: var(--text-primary);
+}
+
+.emoji-picker-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.emoji-picker-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.emoji-picker-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.emoji-picker-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.emoji-picker-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+.emoji-category-section {
+  margin-bottom: 0;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.emoji-item-btn {
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 6px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: transform 0.12s ease, background-color 0.15s ease;
+  user-select: none;
+}
+
+.emoji-item-btn:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.22);
+}
+
+.emoji-item-btn:active {
+  transform: scale(1.05);
+}
+
+.emoji-category-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-chat-header);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.emoji-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.emoji-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.emoji-tab-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.emoji-tab-btn.active {
+  color: var(--accent-primary);
+  background-color: rgba(0, 168, 132, 0.1);
+}
+
+.emoji-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+  right: 4px;
+  height: 2.5px;
+  background-color: var(--accent-primary);
+  border-radius: 2px;
+}
+
+.emoji-no-results {
+  padding: 40px 10px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.emoji-picker-footer {
+  padding: 8px 14px;
+  background-color: var(--bg-chat-header);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.emoji-footer-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.emoji-hover-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.emoji-preview-char {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.emoji-preview-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+
+
+
 
