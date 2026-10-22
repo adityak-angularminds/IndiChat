@@ -6,20 +6,64 @@ const PROMPT_DISMISSED_KEY = 'chat_notification_prompt_dismissed';
 
 export type NotificationPermissionStatus = NotificationPermission | 'unsupported';
 
-export interface ToastNotification {
-  id: string;
-  title: string;
-  body: string;
-  tag?: string;
-  avatar?: string;
-  onClick?: () => void;
-}
+/**
+ * Generates a circular avatar data URL with the user's initial on a WhatsApp gradient.
+ * Generates a PNG data URL via Canvas (with SVG fallback) for full OS notification compatibility.
+ */
+export function generateInitialAvatarDataUrl(nameOrInitial?: string): string {
+  const chars = Array.from((nameOrInitial || '').trim());
+  const initial = chars.length > 0 ? chars[0].toUpperCase() : '?';
 
-type ToastListener = (toast: ToastNotification) => void;
+  if (typeof document !== 'undefined') {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+
+        // Background circle with WhatsApp green gradient
+        const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+        gradient.addColorStop(0, '#00a884');
+        gradient.addColorStop(1, '#005c4b');
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(64, 64, 64, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Initial letter centered
+        ctx.font = 'bold 68px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initial, 64, 67);
+
+        return canvas.toDataURL('image/png');
+      }
+    } catch {
+      // Fallback to SVG below
+    }
+  }
+
+  // High-compatibility SVG data URL fallback
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00a884" />
+      <stop offset="100%" stop-color="#005c4b" />
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="64" fill="url(#g)" />
+  <text x="64" y="73" font-family="system-ui, -apple-system, sans-serif" font-size="68" font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">${initial}</text>
+</svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
 
 export class NotificationService {
   private deviceToken: string | null = null;
-  private toastListeners: Set<ToastListener> = new Set();
 
   constructor() {
     this.deviceToken = localStorage.getItem(DEVICE_TOKEN_KEY);
@@ -62,6 +106,7 @@ export class NotificationService {
         this.showNotification('WhatsApp Web', {
           body: '🎉 Notifications enabled! You will now receive alerts for incoming messages.',
           tag: 'welcome-notification',
+          username: 'W',
         });
       }
       return permission;
@@ -97,49 +142,31 @@ export class NotificationService {
     }
   }
 
-  public onToast(listener: ToastListener): () => void {
-    this.toastListeners.add(listener);
-    return () => {
-      this.toastListeners.delete(listener);
-    };
-  }
-
   public showNotification(
     title: string,
     options: {
       body: string;
       tag?: string;
+      username?: string;
       avatar?: string;
+      icon?: string;
       data?: Record<string, any>;
       onClick?: () => void;
     }
   ): Notification | null {
-    // 1. Always trigger in-app browser toast popup
-    const toastItem: ToastNotification = {
-      id: generateUUID(),
-      title,
-      body: options.body,
-      tag: options.tag,
-      avatar: options.avatar,
-      onClick: options.onClick,
-    };
-    this.toastListeners.forEach((listener) => {
-      try {
-        listener(toastItem);
-      } catch (e) {
-        console.error('Toast listener error:', e);
-      }
-    });
-
-    // 2. Trigger native OS / desktop browser notification if granted
+    // Native OS / desktop browser push notification
     if (!this.isSupported() || Notification.permission !== 'granted') {
       return null;
     }
 
     try {
+      // Instead of favicon, generate the user initial icon from the username/avatar/title
+      const initialSource = options.username || options.avatar || title;
+      const iconUrl = options.icon || generateInitialAvatarDataUrl(initialSource);
+
       const notification = new Notification(title, {
         body: options.body,
-        icon: '/favicon.ico',
+        icon: iconUrl,
         tag: options.tag || 'chat-notification',
         data: options.data,
       });
@@ -154,7 +181,7 @@ export class NotificationService {
 
       return notification;
     } catch (err) {
-      console.warn('[NotificationService] Error showing native notification:', err);
+      console.warn('[NotificationService] Error showing native push notification:', err);
       return null;
     }
   }
