@@ -55,6 +55,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
       return ['😀', '😂', '😍', '👍', '❤️', '🔥', '🎉', '🙏'];
     }
   });
+  const [hoveredEmoji, setHoveredEmoji] = useState<{ emoji: string; name: string } | null>(null);
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -228,6 +229,8 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
                     type="button"
                     className="emoji-item-btn"
                     onClick={() => handleEmojiClick(item.emoji)}
+                    onMouseEnter={() => setHoveredEmoji({ emoji: item.emoji, name: item.name })}
+                    onMouseLeave={() => setHoveredEmoji(null)}
                     title={item.name}
                     aria-label={item.name}
                   >
@@ -252,6 +255,8 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
                     type="button"
                     className="emoji-item-btn"
                     onClick={() => handleEmojiClick(emoji)}
+                    onMouseEnter={() => setHoveredEmoji({ emoji, name: emoji })}
+                    onMouseLeave={() => setHoveredEmoji(null)}
                     title={`Recent: ${emoji}`}
                   >
                     {emoji}
@@ -270,6 +275,8 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
                   type="button"
                   className="emoji-item-btn"
                   onClick={() => handleEmojiClick(item.emoji)}
+                  onMouseEnter={() => setHoveredEmoji({ emoji: item.emoji, name: item.name })}
+                  onMouseLeave={() => setHoveredEmoji(null)}
                   title={item.name}
                   aria-label={item.name}
                 >
@@ -277,6 +284,24 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer / Bottom Category Title & Preview */}
+      <div className="emoji-picker-footer">
+        {hoveredEmoji ? (
+          <div className="emoji-hover-preview">
+            <span className="emoji-preview-char">{hoveredEmoji.emoji}</span>
+            <span className="emoji-preview-name">{hoveredEmoji.name}</span>
+          </div>
+        ) : (
+          <div className="emoji-footer-title">
+            {searchQuery
+              ? `Search: "${searchQuery}" (${searchResults?.length || 0})`
+              : activeTab === 'recent'
+              ? `Recently Used (${recentEmojis.length})`
+              : `${currentCategory.name} (${currentCategory.emojis.length})`}
           </div>
         )}
       </div>
