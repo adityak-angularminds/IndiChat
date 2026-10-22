@@ -34,6 +34,7 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(userId.toString())
             .claim("username", username)
             .claim("displayName", displayName)
@@ -48,6 +49,7 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + refreshExpirationMs);
 
         return Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(userId.toString())
             .claim("type", "refresh")
             .issuedAt(now)

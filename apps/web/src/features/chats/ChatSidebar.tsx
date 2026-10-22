@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Conversation } from '@chat/shared-types';
+import { User, Conversation, Message } from '@chat/shared-types';
 import {
   MessageSquarePlus,
   Search,
@@ -12,9 +12,11 @@ import {
   Bell,
   BellRing,
   BellOff,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import { notificationService, NotificationPermissionStatus } from '../../services/notifications';
+import { SettingsView, SettingsSubView } from '../settings/SettingsView';
 
 interface ChatSidebarProps {
   currentUser: User;
@@ -26,6 +28,10 @@ interface ChatSidebarProps {
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   isMobileOpen: boolean;
+  messages?: Message[];
+  onUpdateUser?: (updated: Partial<User>) => void;
+  onClearAllMessages?: () => void;
+  onDeleteAllChats?: () => void;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -37,8 +43,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onLogout,
   theme,
   onToggleTheme,
-  isMobileOpen
+  isMobileOpen,
+  messages = [],
+  onUpdateUser,
+  onClearAllMessages,
+  onDeleteAllChats,
 }) => {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsSubView, setSettingsSubView] = useState<SettingsSubView>('menu');
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationStatus, setNotificationStatus] = useState<NotificationPermissionStatus>(() =>
     notificationService.getPermissionStatus()
@@ -154,11 +166,37 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     return msg.content || '';
   }
 
+  if (isSettingsOpen) {
+    return (
+      <aside className={`sidebar ${!isMobileOpen ? 'collapsed' : ''}`}>
+        <SettingsView
+          currentUser={currentUser}
+          conversations={conversations}
+          messages={messages}
+          onClose={() => setIsSettingsOpen(false)}
+          onLogout={onLogout}
+          onUpdateUser={onUpdateUser}
+          onClearAllMessages={onClearAllMessages}
+          onDeleteAllChats={onDeleteAllChats}
+          initialSubView={settingsSubView}
+        />
+      </aside>
+    );
+  }
+
   return (
     <aside className={`sidebar ${!isMobileOpen ? 'collapsed' : ''}`}>
       {/* Header */}
       <div className="sidebar-header">
-        <div className="sidebar-user" title={currentUser.displayName}>
+        <div
+          className="sidebar-user"
+          title={`${currentUser.displayName} — Click for Settings`}
+          onClick={() => {
+            setSettingsSubView('menu');
+            setIsSettingsOpen(true);
+          }}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="avatar online">
             {currentUser.displayName ? currentUser.displayName.charAt(0).toUpperCase() : 'U'}
           </div>
@@ -188,6 +226,18 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             ) : (
               <Bell size={20} />
             )}
+          </button>
+          <button
+            className="icon-btn"
+            onClick={() => {
+              setSettingsSubView('menu');
+              setIsSettingsOpen(true);
+            }}
+            title="Settings"
+            aria-label="Settings"
+            id="sidebar-settings-btn"
+          >
+            <Settings size={20} />
           </button>
           <button className="icon-btn" onClick={onOpenNewChat} title="New Chat or Group" aria-label="New Chat">
             <MessageSquarePlus size={20} />

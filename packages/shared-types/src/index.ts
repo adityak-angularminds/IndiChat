@@ -22,8 +22,10 @@ export interface AuthTokens {
 }
 
 export interface AuthResponse {
-  tokens: AuthTokens;
-  user: User;
+  tokens?: AuthTokens;
+  user?: User;
+  requiresTwoFactor?: boolean;
+  message?: string;
 }
 
 export interface RegisterRequest {
@@ -37,6 +39,11 @@ export interface RegisterRequest {
 export interface LoginRequest {
   usernameOrEmail: string;
   password: string;
+  twoFactorPin?: string;
+  deviceId?: string;
+  deviceName?: string;
+  platform?: string;
+  browser?: string;
 }
 
 export interface RefreshRequest {
@@ -145,6 +152,7 @@ export type WebSocketServerAction =
   | 'typing.updated'
   | 'presence.updated'
   | 'call.signal'
+  | 'DEVICE_REMOVED'
   | 'error';
 
 export interface SendMessagePayload {

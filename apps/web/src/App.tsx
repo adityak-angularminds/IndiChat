@@ -12,6 +12,9 @@ import { CallModal } from './features/calls/CallModal';
 import { NotificationModal } from './features/notifications/NotificationModal';
 import { NotificationToastContainer } from './features/notifications/NotificationToastContainer';
 import { generateUUID } from './utils/uuid';
+import { resetDeviceId } from './utils/device';
+import { settingsService } from './services/settings';
+import { SessionRevokedModal } from './features/auth/SessionRevokedModal';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -24,6 +27,8 @@ export const App: React.FC = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(true);
+  const [sessionRevokedReason, setSessionRevokedReason] = useState<string | null>(null);
+  const isLoggingOutRef = React.useRef(false);
 
   // Calling state
   const [activeCall, setActiveCall] = useState<{
@@ -38,9 +43,10 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Prompt notification allow popup on opening website if not yet granted
+  // Prompt notification allow popup on opening website if not yet granted (only when user is logged in)
   useEffect(() => {
     if (
+      currentUser &&
       notificationService.isSupported() &&
       notificationService.getPermissionStatus() === 'default' &&
       !notificationService.isDismissed()
@@ -50,7 +56,7 @@ export const App: React.FC = () => {
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [currentUser]);
 
   // Check existing session
   useEffect(() => {
@@ -63,13 +69,20 @@ export const App: React.FC = () => {
     api.getMe()
       .then((user) => {
         setCurrentUser(user);
+        settingsService.loadForUser(user.id);
         wsClient.connect(token);
         loadConversations();
         notificationService.syncDeviceToken();
+        settingsService.syncWithBackend();
       })
-      .catch(() => {
+      .catch((err) => {
         localStorage.removeItem('chat_access_token');
         localStorage.removeItem('chat_refresh_token');
+        resetDeviceId();
+        const msg = err instanceof Error ? err.message : '';
+        if (msg && (msg.toLowerCase().includes('revoked') || msg.toLowerCase().includes('removed'))) {
+          setSessionRevokedReason('This device was removed from your linked devices. You have been logged out.');
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -285,22 +298,79 @@ export const App: React.FC = () => {
   }, [currentUser, activeConversationId, conversations]);
 
   const handleAuthenticated = (res: AuthResponse) => {
+    if (!res.user || !res.tokens) return;
     setCurrentUser(res.user);
+    settingsService.loadForUser(res.user.id);
     wsClient.connect(res.tokens.accessToken);
     loadConversations();
     notificationService.syncDeviceToken();
+    settingsService.syncWithBackend();
   };
 
-  const handleLogout = () => {
-    notificationService.unregister();
+  const handleLogout = useCallback((notifyBackend = true, keepRevokedReason = false) => {
+    isLoggingOutRef.current = true;
+    if (!keepRevokedReason) {
+      setSessionRevokedReason(null);
+    }
+    setShowNotificationModal(false);
+
+    // Network logout and push unregistration happen cleanly in the background
+    if (notifyBackend) {
+      api.logout().catch((e) => {
+        console.warn('Backend logout warning (proceeding with local cleanup):', e);
+      });
+    }
+
+    try {
+      notificationService.unregister();
+    } catch (e) {}
+
     wsClient.disconnect();
     localStorage.removeItem('chat_access_token');
     localStorage.removeItem('chat_refresh_token');
+    resetDeviceId();
+    settingsService.resetForLogout();
     setCurrentUser(null);
     setConversations([]);
     setActiveConversationId(null);
     setMessages([]);
-  };
+
+    setTimeout(() => {
+      isLoggingOutRef.current = false;
+    }, 1500);
+  }, []);
+
+  // Listen for remote device removal / session termination
+  useEffect(() => {
+    const unsubDeviceRemoved = wsClient.onDeviceRemoved((reason) => {
+      if (isLoggingOutRef.current) return;
+      console.warn('[Session] Device removed remotely by user:', reason);
+      handleLogout(false, true);
+      setSessionRevokedReason(
+        reason || 'This device was removed from your linked devices. You have been logged out.'
+      );
+    });
+
+    const handleSessionExpired = (e: Event) => {
+      if (isLoggingOutRef.current) return;
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      const reason = customEvent.detail?.message;
+      console.warn('[Session] Session expired event:', reason);
+      const isRevocation =
+        reason && (reason.toLowerCase().includes('revoked') || reason.toLowerCase().includes('removed'));
+      handleLogout(false, Boolean(isRevocation));
+      if (isRevocation) {
+        setSessionRevokedReason('This device was removed from your linked devices. You have been logged out.');
+      }
+    };
+
+    window.addEventListener('chat:session_expired', handleSessionExpired);
+
+    return () => {
+      unsubDeviceRemoved();
+      window.removeEventListener('chat:session_expired', handleSessionExpired);
+    };
+  }, [handleLogout]);
 
   const handleSendMessage = async (content: string, messageType: MessageType = 'TEXT') => {
     if (!currentUser || !activeConversationId) return;
@@ -425,12 +495,10 @@ export const App: React.FC = () => {
     return (
       <>
         <AuthModal onAuthenticated={handleAuthenticated} />
-        <NotificationModal
-          isOpen={showNotificationModal}
-          onClose={() => setShowNotificationModal(false)}
-          onGranted={() => {
-            notificationService.syncDeviceToken();
-          }}
+        <SessionRevokedModal
+          isOpen={Boolean(sessionRevokedReason)}
+          reason={sessionRevokedReason || undefined}
+          onClose={() => setSessionRevokedReason(null)}
         />
         <NotificationToastContainer />
       </>
@@ -449,6 +517,27 @@ export const App: React.FC = () => {
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         isMobileOpen={isMobileOpen}
+        messages={messages}
+        onUpdateUser={(updated) => setCurrentUser((prev) => (prev ? { ...prev, ...updated } : prev))}
+        onClearAllMessages={async () => {
+          try {
+            await api.clearAllMessages();
+            setMessages([]);
+            loadConversations();
+          } catch (e) {
+            console.error('Failed to clear all messages on backend', e);
+          }
+        }}
+        onDeleteAllChats={async () => {
+          try {
+            await api.deleteAllChats();
+            setConversations([]);
+            setActiveConversationId(null);
+            setMessages([]);
+          } catch (e) {
+            console.error('Failed to delete all chats on backend', e);
+          }
+        }}
       />
 
       <ChatWindow

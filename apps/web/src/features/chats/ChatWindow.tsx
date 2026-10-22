@@ -8,6 +8,7 @@ import { AttachmentPreviewModal, formatFileSize, getFileExtension, getFileIconAn
 import { MediaLightboxModal } from './MediaLightboxModal';
 import { EmojiPicker, MediaPickerMode } from './EmojiPicker';
 import { getGiphyFallbacks } from './gifData';
+import { settingsService } from '../../services/settings';
 import {
   Send,
   Paperclip,
@@ -143,9 +144,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Mark incoming messages as read when opening conversation
+  // Mark incoming messages as read when opening conversation (respecting read receipts privacy setting)
   useEffect(() => {
-    if (conversation) {
+    if (conversation && settingsService.getSettings().readReceipts) {
       messages.forEach((msg) => {
         if (msg.senderId !== currentUser.id) {
           const isRead = msg.receipts?.some((r) => r.userId === currentUser.id && r.readAt != null);
@@ -215,9 +216,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    const enterIsSend = settingsService.getSettings().enterIsSend;
+    if (enterIsSend) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    } else {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleSend();
+      }
     }
   };
 
@@ -341,7 +350,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       );
     }
 
-    const isRead = msg.receipts?.some((r) => r.readAt != null);
+    const userReadReceiptsEnabled = settingsService.getSettings().readReceipts;
+    const isRead = userReadReceiptsEnabled && msg.receipts?.some((r) => r.readAt != null);
     const isDelivered = msg.receipts?.some((r) => r.deliveredAt != null);
 
     if (isRead) {

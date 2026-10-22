@@ -8,12 +8,14 @@ import {
   WebSocketMessage
 } from '@chat/shared-types';
 import { generateUUID } from '../utils/uuid';
+import { getDeviceId } from '../utils/device';
 
 type MessageCreatedHandler = (message: Message) => void;
 type ReceiptUpdatedHandler = (receipt: MessageReceipt) => void;
 type TypingUpdatedHandler = (event: TypingEventPayload) => void;
 type PresenceUpdatedHandler = (event: PresenceEventPayload) => void;
 type CallSignalHandler = (signal: CallSignalPayload) => void;
+type DeviceRemovedHandler = (reason: string) => void;
 
 class WebSocketClient {
   private socket: WebSocket | null = null;
@@ -26,6 +28,7 @@ class WebSocketClient {
   private typingUpdatedListeners = new Set<TypingUpdatedHandler>();
   private presenceUpdatedListeners = new Set<PresenceUpdatedHandler>();
   private callSignalListeners = new Set<CallSignalHandler>();
+  private deviceRemovedListeners = new Set<DeviceRemovedHandler>();
 
   public connect(token: string) {
     this.token = token;
@@ -37,7 +40,8 @@ class WebSocketClient {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws?token=${token}`;
+    const deviceId = getDeviceId();
+    const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(deviceId)}`;
 
     try {
       this.socket = new WebSocket(wsUrl);
@@ -59,8 +63,14 @@ class WebSocketClient {
         }
       };
 
-      this.socket.onclose = () => {
-        console.log('[WebSocket] Disconnected');
+      this.socket.onclose = (event) => {
+        console.log('[WebSocket] Disconnected', event.code, event.reason);
+        if (event.code === 4001) {
+          this.isExplicitlyClosed = true;
+          const reason = event.reason || 'Device session has been removed or logged out.';
+          this.deviceRemovedListeners.forEach((fn) => fn(reason));
+          return;
+        }
         if (!this.isExplicitlyClosed) {
           this.scheduleReconnect();
         }
@@ -113,6 +123,13 @@ class WebSocketClient {
         break;
       case 'call.signal':
         this.callSignalListeners.forEach((fn) => fn(msg.payload as CallSignalPayload));
+        break;
+      case 'DEVICE_REMOVED':
+        this.isExplicitlyClosed = true;
+        {
+          const reason = (msg.payload as any)?.reason || 'This device has been removed from linked devices.';
+          this.deviceRemovedListeners.forEach((fn) => fn(reason));
+        }
         break;
     }
   }
@@ -182,6 +199,11 @@ class WebSocketClient {
   public onCallSignal(fn: CallSignalHandler) {
     this.callSignalListeners.add(fn);
     return () => { this.callSignalListeners.delete(fn); };
+  }
+
+  public onDeviceRemoved(fn: DeviceRemovedHandler) {
+    this.deviceRemovedListeners.add(fn);
+    return () => { this.deviceRemovedListeners.delete(fn); };
   }
 }
 

@@ -19,8 +19,10 @@ export interface AuthTokens {
     expiresIn: number;
 }
 export interface AuthResponse {
-    tokens: AuthTokens;
-    user: User;
+    tokens?: AuthTokens;
+    user?: User;
+    requiresTwoFactor?: boolean;
+    message?: string;
 }
 export interface RegisterRequest {
     phoneNumber?: string;
@@ -32,6 +34,11 @@ export interface RegisterRequest {
 export interface LoginRequest {
     usernameOrEmail: string;
     password: string;
+    twoFactorPin?: string;
+    deviceId?: string;
+    deviceName?: string;
+    platform?: string;
+    browser?: string;
 }
 export interface RefreshRequest {
     refreshToken: string;
@@ -112,7 +119,7 @@ export interface MessageHistoryResponse {
     nextCursor?: string;
 }
 export type WebSocketClientAction = 'message.send' | 'message.delivered' | 'message.read' | 'typing.start' | 'typing.stop' | 'presence.subscribe' | 'call.signal';
-export type WebSocketServerAction = 'message.created' | 'message.receipt.updated' | 'typing.updated' | 'presence.updated' | 'call.signal' | 'error';
+export type WebSocketServerAction = 'message.created' | 'message.receipt.updated' | 'typing.updated' | 'presence.updated' | 'call.signal' | 'DEVICE_REMOVED' | 'error';
 export interface SendMessagePayload {
     conversationId: UUID;
     clientMessageId: UUID;

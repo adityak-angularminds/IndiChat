@@ -1,0 +1,6 @@
+package com.chat.user.dto;
+
+public record ChangePasswordRequest(
+    String currentPassword,
+    String newPassword
+) {}

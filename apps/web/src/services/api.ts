@@ -11,6 +11,8 @@ import {
   FileUploadResponse
 } from '@chat/shared-types';
 
+import { getDeviceDetails } from '../utils/device';
+
 const API_BASE = '/api/v1';
 
 export class ApiError extends Error {
@@ -24,9 +26,24 @@ function getAuthHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function getDeviceHeaders(): Record<string, string> {
+  try {
+    const details = getDeviceDetails();
+    return {
+      'X-Device-Id': details.deviceId,
+      'X-Device-Name': details.deviceName,
+      'X-Device-Platform': details.platform,
+      'X-Device-Browser': details.browser,
+    };
+  } catch {
+    return {};
+  }
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers = {
     'Content-Type': 'application/json',
+    ...getDeviceHeaders(),
     ...getAuthHeader(),
     ...options.headers,
   };
@@ -44,6 +61,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     } catch {
       // fallback
     }
+
+    if (
+      res.status === 401 &&
+      !endpoint.startsWith('/auth/login') &&
+      !endpoint.startsWith('/auth/register') &&
+      !endpoint.startsWith('/auth/logout')
+    ) {
+      window.dispatchEvent(
+        new CustomEvent('chat:session_expired', {
+          detail: { message: errorMsg || 'Your session has ended or this device was logged out.' }
+        })
+      );
+    }
+
     throw new ApiError(res.status, errorMsg);
   }
 
@@ -56,15 +87,35 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // Auth
-  register: (data: RegisterRequest) => request<AuthResponse>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  logout: () => request<{ message: string }>('/auth/logout', { method: 'POST' }),
 
-  login: (data: LoginRequest) => request<AuthResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
+  register: (data: RegisterRequest) => {
+    const details = getDeviceDetails();
+    return request<AuthResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: details.deviceId,
+        deviceName: details.deviceName,
+        platform: details.platform,
+        browser: details.browser,
+        ...data,
+      }),
+    });
+  },
+
+  login: (data: LoginRequest) => {
+    const details = getDeviceDetails();
+    return request<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: details.deviceId,
+        deviceName: details.deviceName,
+        platform: details.platform,
+        browser: details.browser,
+        ...data,
+      }),
+    });
+  },
 
   // Users
   getMe: () => request<User>('/users/me'),
@@ -135,5 +186,77 @@ export const api = {
 
     return res.json();
   },
+
+  // User Profile & Account Settings
+  updateProfile: (data: { displayName?: string; username?: string; email?: string; phoneNumber?: string }) =>
+    request<User>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<{ message: string }>('/users/me/password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updatePasskey: (enabled: boolean) =>
+    request<{ message: string }>('/users/me/passkey', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
+
+  updateTwoFactor: (enabled: boolean, pin?: string) =>
+    request<{ message: string }>('/users/me/2fa', {
+      method: 'POST',
+      body: JSON.stringify({ enabled, pin }),
+    }),
+
+  // Linked Devices
+  getLinkedDevices: () => request<any[]>('/devices'),
+
+  linkDevice: (data: {
+    deviceName: string;
+    platform?: string;
+    browser?: string;
+    location?: string;
+    ipAddress?: string;
+  }) =>
+    request<any>('/devices/link', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  removeLinkedDevice: (deviceId: string) =>
+    request<{ message: string }>(`/devices/${deviceId}`, {
+      method: 'DELETE',
+    }),
+
+  removeOtherLinkedDevices: () =>
+    request<{ message: string }>('/devices/others', {
+      method: 'DELETE',
+    }),
+
+  // Settings & Privacy
+  getUserSettings: () => request<any>('/settings'),
+
+  updateUserSettings: (data: any) =>
+    request<any>('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // Chat Backup & History
+  getChatBackup: () => request<any>('/conversations/backup'),
+
+  clearAllMessages: () =>
+    request<{ message: string }>('/conversations/messages/clear', {
+      method: 'DELETE',
+    }),
+
+  deleteAllChats: () =>
+    request<{ message: string }>('/conversations/all', {
+      method: 'DELETE',
+    }),
 };
 

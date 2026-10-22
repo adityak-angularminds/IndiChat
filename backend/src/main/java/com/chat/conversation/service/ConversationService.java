@@ -153,4 +153,81 @@ public class ConversationService {
             unreadCount
         );
     }
+
+    @Transactional
+    public Map<String, Object> generateChatBackup(UUID userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        List<Conversation> conversations = conversationRepository.findConversationsByUserId(userId);
+        List<Map<String, Object>> convList = new ArrayList<>();
+        int totalMessages = 0;
+
+        for (Conversation c : conversations) {
+            List<ConversationMember> members = memberRepository.findByIdConversationId(c.getId());
+            List<Message> msgs = messageRepository.findLatestByConversationId(
+                c.getId(),
+                org.springframework.data.domain.PageRequest.of(0, 1000)
+            );
+            totalMessages += msgs.size();
+
+            Map<String, Object> convMap = new HashMap<>();
+            convMap.put("id", c.getId().toString());
+            convMap.put("type", c.getType());
+            convMap.put("title", c.getTitle());
+            convMap.put("createdAt", c.getCreatedAt().toString());
+            convMap.put("updatedAt", c.getUpdatedAt().toString());
+            convMap.put("members", members.stream().map(m -> Map.of(
+                "userId", m.getUser().getId().toString(),
+                "role", m.getRole(),
+                "displayName", m.getUser().getDisplayName() != null ? m.getUser().getDisplayName() : "",
+                "username", m.getUser().getUsername() != null ? m.getUser().getUsername() : ""
+            )).toList());
+            convMap.put("messages", msgs.stream().map(m -> {
+                Map<String, Object> msgMap = new HashMap<>();
+                msgMap.put("id", m.getId().toString());
+                msgMap.put("senderId", m.getSender() != null ? m.getSender().getId().toString() : "");
+                msgMap.put("type", m.getType());
+                msgMap.put("content", m.getContent() != null ? m.getContent() : "");
+                msgMap.put("createdAt", m.getCreatedAt().toString());
+                return msgMap;
+            }).toList());
+
+            convList.add(convMap);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("version", "1.0");
+        result.put("exportedAt", Instant.now().toString());
+        result.put("user", Map.of(
+            "id", user.getId().toString(),
+            "username", user.getUsername(),
+            "displayName", user.getDisplayName(),
+            "email", user.getEmail() != null ? user.getEmail() : "",
+            "phoneNumber", user.getPhoneNumber() != null ? user.getPhoneNumber() : ""
+        ));
+        result.put("summary", Map.of(
+            "totalConversations", conversations.size(),
+            "totalMessages", totalMessages
+        ));
+        result.put("conversations", convList);
+        return result;
+    }
+
+    @Transactional
+    public void clearAllMessages(UUID userId) {
+        List<Conversation> conversations = conversationRepository.findConversationsByUserId(userId);
+        for (Conversation c : conversations) {
+            messageRepository.deleteByConversationId(c.getId());
+        }
+    }
+
+    @Transactional
+    public void deleteAllChats(UUID userId) {
+        List<Conversation> conversations = conversationRepository.findConversationsByUserId(userId);
+        for (Conversation c : conversations) {
+            memberRepository.findByIdConversationIdAndIdUserId(c.getId(), userId)
+                .ifPresent(memberRepository::delete);
+        }
+    }
 }
