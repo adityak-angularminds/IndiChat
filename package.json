@@ -12,6 +12,8 @@
     "web:dev": "npm --workspace=apps/web run dev",
     "web:build": "npm --workspace=apps/web run build",
     "mobile:start": "npm --workspace=apps/mobile run start",
+    "mobile:android": "npm --workspace=apps/mobile run android",
+    "mobile:ios": "npm --workspace=apps/mobile run ios",
     "backend:build": "docker run --rm -v $(pwd)/backend:/app -w /app -v $HOME/.m2:/root/.m2 maven:3.9-eclipse-temurin-21 mvn clean package -DskipTests",
     "backend:test": "docker run --rm -v $(pwd)/backend:/app -w /app -v $HOME/.m2:/root/.m2 maven:3.9-eclipse-temurin-21 mvn test",
     "backend:run": "java -jar backend/target/chat-backend-1.0.0.jar"

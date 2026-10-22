@@ -7,7 +7,9 @@
     "dev": "vite --port 5174 --host",
     "build": "tsc && vite build",
     "preview": "vite preview --port 5173",
-    "mobile:start": "npm --prefix ../.. run mobile:start"
+    "mobile:start": "npm --prefix ../.. run mobile:start",
+    "mobile:android": "npm --prefix ../.. run mobile:android",
+    "mobile:ios": "npm --prefix ../.. run mobile:ios"
   },
   "dependencies": {
     "@chat/shared-types": "file:../../packages/shared-types",
