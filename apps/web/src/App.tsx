@@ -449,6 +449,14 @@ export const App: React.FC = () => {
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         isMobileOpen={isMobileOpen}
+        messages={messages}
+        onUpdateUser={(updated) => setCurrentUser((prev) => (prev ? { ...prev, ...updated } : prev))}
+        onClearAllMessages={() => setMessages([])}
+        onDeleteAllChats={() => {
+          setConversations([]);
+          setActiveConversationId(null);
+          setMessages([]);
+        }}
       />
 
       <ChatWindow
