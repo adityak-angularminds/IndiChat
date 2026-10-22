@@ -99,10 +99,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
     }
   };
 
-  const handleQuickLogin = (uname: string, name: string) => {
+  const handleQuickLogin = async (uname: string, name: string) => {
     setUsername(uname);
     setPassword('Password123!');
     setDisplayName(name);
+    setError(null);
+    setTwoFactorPin('');
+    setLoading(true);
+
+    try {
+      const res = await api.login({
+        usernameOrEmail: uname,
+        password: 'Password123!',
+      });
+      if (res.requiresTwoFactor) {
+        setIsTwoFactorStep(true);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      if (res.tokens) {
+        setIsTwoFactorStep(false);
+        localStorage.setItem('chat_access_token', res.tokens.accessToken);
+        localStorage.setItem('chat_refresh_token', res.tokens.refreshToken);
+        onAuthenticated(res);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Authentication failed. Please verify credentials.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -131,7 +161,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
                 Two-Step Verification
               </h2>
               <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '320px', margin: '6px auto 0' }}>
-                Your account is protected. Enter the 6-digit PIN you configured to complete sign in.
+                Account <strong style={{ color: 'var(--accent-primary)' }}>@{username}</strong> has two-step verification enabled. Enter your 6-digit PIN to complete sign in.
               </p>
             </div>
 
@@ -207,6 +237,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
               >
                 <ArrowLeft size={16} /> Back to Sign In
               </button>
+
+              {/* Quick switch account from 2FA screen */}
+              <div style={{
+                marginTop: '16px',
+                paddingTop: '12px',
+                borderTop: '1px dashed var(--border-color)',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
+                  SWITCH TEST ACCOUNT:
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                    onClick={() => handleQuickLogin('alice', 'Alice')}
+                  >
+                    Alice (2FA: 112233)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                    onClick={() => handleQuickLogin('bob', 'Bob')}
+                  >
+                    Bob (No 2FA)
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                    onClick={() => handleQuickLogin('charlie', 'Charlie')}
+                  >
+                    Charlie (No 2FA)
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         ) : (
@@ -324,7 +392,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
                 border: '1px dashed var(--border-color)'
               }}>
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 600 }}>
-                  QUICK TEST PROFILES (Click to auto-fill):
+                  QUICK TEST PROFILES (Click to sign in):
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button
@@ -333,7 +401,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
                     style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                     onClick={() => handleQuickLogin('alice', 'Alice')}
                   >
-                    Alice
+                    Alice (2FA: 112233)
                   </button>
                   <button
                     type="button"
@@ -341,7 +409,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
                     style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                     onClick={() => handleQuickLogin('bob', 'Bob')}
                   >
-                    Bob
+                    Bob (No 2FA)
                   </button>
                   <button
                     type="button"
@@ -349,7 +417,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
                     style={{ padding: '4px 10px', fontSize: '0.78rem' }}
                     onClick={() => handleQuickLogin('charlie', 'Charlie')}
                   >
-                    Charlie
+                    Charlie (No 2FA)
                   </button>
                 </div>
               </div>

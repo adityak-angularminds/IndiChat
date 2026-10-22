@@ -64,6 +64,7 @@ export const App: React.FC = () => {
     api.getMe()
       .then((user) => {
         setCurrentUser(user);
+        settingsService.loadForUser(user.id);
         wsClient.connect(token);
         loadConversations();
         notificationService.syncDeviceToken();
@@ -289,6 +290,7 @@ export const App: React.FC = () => {
   const handleAuthenticated = (res: AuthResponse) => {
     if (!res.user || !res.tokens) return;
     setCurrentUser(res.user);
+    settingsService.loadForUser(res.user.id);
     wsClient.connect(res.tokens.accessToken);
     loadConversations();
     notificationService.syncDeviceToken();
@@ -300,6 +302,7 @@ export const App: React.FC = () => {
     wsClient.disconnect();
     localStorage.removeItem('chat_access_token');
     localStorage.removeItem('chat_refresh_token');
+    settingsService.resetForLogout();
     setCurrentUser(null);
     setConversations([]);
     setActiveConversationId(null);

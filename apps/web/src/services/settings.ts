@@ -123,15 +123,34 @@ class SettingsService {
   private settings: AppSettings;
   private listeners: Set<SettingsListener> = new Set();
   private isSyncing = false;
+  private currentUserId: string | null = null;
 
   constructor() {
     this.settings = this.loadFromStorage();
     this.applyDomEffects(this.settings);
   }
 
+  private getStorageKey(): string {
+    return this.currentUserId ? `chat_app_settings_${this.currentUserId}` : SETTINGS_STORAGE_KEY;
+  }
+
+  public loadForUser(userId: string): void {
+    this.currentUserId = userId;
+    this.settings = this.loadFromStorage();
+    this.applyDomEffects(this.settings);
+    this.notify();
+  }
+
+  public resetForLogout(): void {
+    this.currentUserId = null;
+    this.settings = { ...DEFAULT_SETTINGS };
+    this.applyDomEffects(this.settings);
+    this.notify();
+  }
+
   private loadFromStorage(): AppSettings {
     try {
-      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      const saved = localStorage.getItem(this.getStorageKey());
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
@@ -150,7 +169,7 @@ class SettingsService {
 
   private saveToStorage(): void {
     try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.settings));
+      localStorage.setItem(this.getStorageKey(), JSON.stringify(this.settings));
     } catch (e) {
       console.error('Failed to save settings to storage:', e);
     }
