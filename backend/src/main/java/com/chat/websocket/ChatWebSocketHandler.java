@@ -105,6 +105,16 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         // Broadcast presence
         broadcastPresence(userId, true, Instant.now());
+
+        // Process any pending receipts for messages sent to this user while offline
+        try {
+            List<MessageService.PendingReceiptInfo> pendingReceipts = messageService.markAllPendingDeliveredForUser(userId);
+            for (MessageService.PendingReceiptInfo info : pendingReceipts) {
+                broadcastReceipt(info.receipt(), info.conversationId() != null ? info.conversationId().toString() : null);
+            }
+        } catch (Exception e) {
+            log.error("Error marking pending delivered receipts on connect for user {}", userId, e);
+        }
     }
 
     @Override

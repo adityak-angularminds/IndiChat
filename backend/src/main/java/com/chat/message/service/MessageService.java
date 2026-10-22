@@ -86,9 +86,14 @@ public class MessageService {
         // Create pending receipts for all other members
         List<ConversationMember> members = memberRepository.findByIdConversationId(conversation.getId());
         List<MessageReceipt> receipts = new ArrayList<>();
+        Instant now = Instant.now();
         for (ConversationMember member : members) {
             if (!member.getUser().getId().equals(senderId)) {
-                receipts.add(new MessageReceipt(message, member.getUser()));
+                MessageReceipt receipt = new MessageReceipt(message, member.getUser());
+                if (presenceService.isUserOnline(member.getUser().getId())) {
+                    receipt.setDeliveredAt(now);
+                }
+                receipts.add(receipt);
             }
         }
         if (!receipts.isEmpty()) {
@@ -155,6 +160,27 @@ public class MessageService {
         return receiptRepository.findByIdMessageIdAndIdUserId(messageId, userId)
             .map(MessageReceiptDto::fromEntity)
             .orElse(null);
+    }
+
+    public record PendingReceiptInfo(MessageReceiptDto receipt, UUID conversationId) {}
+
+    @Transactional
+    public List<PendingReceiptInfo> markAllPendingDeliveredForUser(UUID userId) {
+        List<MessageReceipt> pending = receiptRepository.findUndeliveredWithConversationForUser(userId);
+        if (pending.isEmpty()) {
+            return List.of();
+        }
+        Instant now = Instant.now();
+        List<PendingReceiptInfo> result = new ArrayList<>();
+        for (MessageReceipt r : pending) {
+            r.setDeliveredAt(now);
+            result.add(new PendingReceiptInfo(
+                MessageReceiptDto.fromEntity(r),
+                r.getMessage().getConversation().getId()
+            ));
+        }
+        receiptRepository.saveAll(pending);
+        return result;
     }
 
     public MessageDto toDto(Message message) {
