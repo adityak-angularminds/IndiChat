@@ -26,7 +26,7 @@ public class UserLinkedDeviceService {
         this.userRepository = userRepository;
     }
 
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public UserLinkedDevice registerOrUpdateDevice(
         User user,
         UUID deviceId,
@@ -39,11 +39,13 @@ public class UserLinkedDeviceService {
             deviceId = UUID.randomUUID();
         }
         UserLinkedDevice device = deviceRepository.findById(deviceId).orElse(null);
-        if (device == null || !device.getUser().getId().equals(user.getId())) {
+        if (device == null) {
             device = new UserLinkedDevice();
             device.setId(deviceId);
             device.setUser(user);
             device.setCreatedAt(Instant.now());
+        } else {
+            device.setUser(user);
         }
 
         if (deviceName != null && !deviceName.isBlank()) {
