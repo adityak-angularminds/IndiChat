@@ -62,7 +62,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       // fallback
     }
 
-    if (res.status === 401 && !endpoint.startsWith('/auth/login') && !endpoint.startsWith('/auth/register')) {
+    if (
+      res.status === 401 &&
+      !endpoint.startsWith('/auth/login') &&
+      !endpoint.startsWith('/auth/register') &&
+      !endpoint.startsWith('/auth/logout')
+    ) {
       window.dispatchEvent(
         new CustomEvent('chat:session_expired', {
           detail: { message: errorMsg || 'Your session has ended or this device was logged out.' }
