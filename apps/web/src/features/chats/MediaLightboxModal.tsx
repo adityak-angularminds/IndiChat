@@ -95,6 +95,8 @@ export const MediaLightboxModal: React.FC<MediaLightboxModalProps> = ({
             src={mediaUrl}
             alt={fileName}
             className="lightbox-image"
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
             style={{
               transform: `scale(${scale}) rotate(${rotation}deg)`,
               transition: 'transform 200ms ease'

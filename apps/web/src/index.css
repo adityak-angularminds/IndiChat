@@ -2290,6 +2290,696 @@ html, body, #root {
   text-transform: capitalize;
 }
 
+/* ==========================================================================
+   WhatsApp Web Unified Media Picker (Emoji, GIF, Stickers)
+   ========================================================================== */
+.whatsapp-media-picker {
+  width: 410px;
+  height: 480px;
+  max-height: 65vh;
+}
+
+/* Bottom Mode Switcher Nav (Emoji | GIF | Stickers) */
+.media-picker-mode-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background-color: var(--bg-chat-header);
+  border-top: 1px solid var(--border-color);
+  padding: 6px 8px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.media-mode-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.media-mode-tab-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.media-mode-tab-btn.active {
+  color: var(--accent-primary);
+  background-color: rgba(0, 168, 132, 0.12);
+  font-weight: 600;
+}
+
+.media-mode-label {
+  font-size: 0.85rem;
+  letter-spacing: 0.2px;
+}
+
+/* GIF Picker Styles */
+.gif-categories-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-chat-header);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.gif-categories-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.gif-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.gif-chip-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.gif-chip-btn.active {
+  background-color: var(--accent-primary);
+  color: #ffffff;
+  border-color: var(--accent-primary);
+}
+
+.custom-gif-add-btn {
+  border-style: dashed;
+}
+
+.custom-gif-form {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  animation: fadeIn 0.15s ease;
+}
+
+.custom-gif-input {
+  flex: 1;
+  background-color: var(--bg-chat-header);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.custom-gif-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.custom-gif-send-btn {
+  background-color: var(--accent-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.custom-gif-send-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.custom-gif-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gif-picker-scroll {
+  padding: 8px;
+}
+
+.gif-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.gif-card-item {
+  position: relative;
+  aspect-ratio: 16 / 11;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #1a2228;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s;
+}
+
+.gif-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  border-color: var(--accent-primary);
+}
+
+.gif-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gif-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 50%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 6px 8px;
+  opacity: 0.9;
+  transition: opacity 0.15s;
+}
+
+.gif-badge {
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.gif-title-text {
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.gif-search-loading-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background-color: rgba(0, 168, 132, 0.12);
+  border: 1px solid rgba(0, 168, 132, 0.25);
+  border-radius: 8px;
+  color: var(--accent-primary, #00a884);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.gif-footer-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-primary, #00a884);
+}
+
+.gif-powered-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background-color: var(--bg-hover);
+  padding: 2px 7px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+
+/* Sticker Picker Styles */
+.sticker-packs-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-chat-header);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.sticker-packs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.sticker-pack-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.sticker-pack-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sticker-pack-btn.active {
+  background-color: rgba(0, 168, 132, 0.12);
+  color: var(--accent-primary);
+  border-color: rgba(0, 168, 132, 0.3);
+}
+
+.sticker-pack-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.sticker-add-new-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background-color: rgba(0, 168, 132, 0.15);
+  color: var(--accent-primary);
+  border: 1px solid rgba(0, 168, 132, 0.35);
+  border-radius: 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.sticker-add-new-btn:hover {
+  background-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.sticker-uploading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  background-color: rgba(0, 168, 132, 0.1);
+  color: var(--accent-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sticker-picker-scroll {
+  padding: 8px 10px;
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.sticker-item-card {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background-color: transparent;
+  cursor: pointer;
+  padding: 6px;
+  transition: transform 0.14s ease, background-color 0.14s ease;
+}
+
+.sticker-item-card:hover {
+  background-color: var(--bg-hover);
+  transform: scale(1.1);
+}
+
+.sticker-image-preview {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  user-select: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.sticker-card-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: none;
+  gap: 2px;
+}
+
+.sticker-item-card:hover .sticker-card-actions {
+  display: flex;
+}
+
+.sticker-action-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s, background-color 0.12s;
+}
+
+.sticker-action-btn:hover {
+  transform: scale(1.15);
+  background-color: rgba(0, 0, 0, 0.85);
+}
+
+.sticker-action-btn.starred {
+  color: #ffcc00;
+}
+
+.sticker-action-btn.delete-btn:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.sticker-create-card-btn {
+  aspect-ratio: 1;
+  background-color: rgba(0, 168, 132, 0.05);
+  border: 2px dashed rgba(0, 168, 132, 0.4);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.sticker-create-card-btn:hover {
+  background-color: rgba(0, 168, 132, 0.12);
+  border-color: var(--accent-primary);
+  transform: scale(1.04);
+}
+
+.sticker-create-card-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.sticker-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 16px;
+  color: var(--text-muted);
+}
+
+.sticker-empty-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(0, 168, 132, 0.1);
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.sticker-empty-state h4 {
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.sticker-empty-state p {
+  margin: 0 0 16px 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  max-width: 280px;
+}
+
+.create-sticker-cta-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: var(--accent-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s;
+}
+
+.create-sticker-cta-btn:hover {
+  transform: scale(1.03);
+  opacity: 0.92;
+}
+
+/* ==========================================================================
+   Chat Message Rendering: Stickers & GIFs
+   ========================================================================== */
+
+/* Sticker Message Bubble (Transparent, Floating, Authentic WhatsApp Web) */
+.message-bubble.has-sticker {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  position: relative;
+}
+
+.message-sticker-bubble {
+  position: relative;
+  display: inline-block;
+  padding: 4px;
+}
+
+.message-sticker-content {
+  width: 145px;
+  height: 145px;
+  max-width: 60vw;
+  max-height: 60vw;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.22));
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-sticker-content:hover {
+  transform: scale(1.05);
+}
+
+/* Floating metadata overlay for stickers */
+.message-bubble.has-sticker .message-meta {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 12px;
+  padding: 2px 7px;
+  color: #ffffff !important;
+  font-size: 0.68rem;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.message-bubble.has-sticker .message-meta .message-time {
+  color: #ffffff !important;
+  font-weight: 500;
+}
+
+.message-bubble.has-sticker .message-meta .receipt-icon {
+  color: #ffffff !important;
+}
+
+.message-bubble.has-sticker .message-meta .receipt-icon.read {
+  color: #53bdeb !important;
+}
+
+/* GIF Message Badge in Image Bubble */
+.message-gif-badge-pill {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  z-index: 3;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.message-image-bubble.is-gif-bubble .message-image-content {
+  min-height: 160px;
+}
+
+/* GIF Input Bar Button */
+.gif-input-btn {
+  padding: 0 4px;
+}
+
+.gif-btn-text {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1.5px solid currentColor;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gif-input-btn.active .gif-btn-text {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+/* Media Load Error Fallback */
+.media-load-error-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-muted);
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.media-load-error-fallback .error-icon {
+  opacity: 0.6;
+}
+
+.retry-media-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.retry-media-btn:hover {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+/* Mobile & Tablet Responsive Media Picker */
+@media (max-width: 768px) {
+  .whatsapp-emoji-picker,
+  .whatsapp-media-picker {
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    bottom: 68px !important;
+    height: 420px !important;
+    max-height: 58vh !important;
+  }
+
+  .media-picker-mode-nav {
+    padding: 4px 6px;
+  }
+
+  .media-mode-tab-btn {
+    padding: 6px 6px;
+    font-size: 0.8rem;
+    gap: 4px;
+  }
+
+  .gif-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .sticker-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+}
+
+
+
 
 
 

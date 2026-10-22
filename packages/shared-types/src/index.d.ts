@@ -51,7 +51,7 @@ export interface MessageReceipt {
     deliveredAt?: string;
     readAt?: string;
 }
-export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT';
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER';
 export interface Message {
     id: UUID;
     conversationId: UUID;
@@ -72,6 +72,23 @@ export interface Message {
     sender?: User;
     receipts?: MessageReceipt[];
     status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+}
+export interface FileAttachmentInfo {
+    fileId?: string;
+    fileName: string;
+    fileType: MessageType;
+    mimeType: string;
+    fileSize: number;
+    fileUrl: string;
+    caption?: string;
+}
+export interface FileUploadResponse {
+    fileId: string;
+    fileName: string;
+    fileType: MessageType;
+    mimeType: string;
+    fileSize: number;
+    fileUrl: string;
 }
 export interface Conversation {
     id: UUID;

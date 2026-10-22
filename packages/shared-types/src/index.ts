@@ -61,7 +61,7 @@ export interface MessageReceipt {
   readAt?: string;
 }
 
-export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT';
+export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER';
 
 export interface Message {
   id: UUID;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Conversation, Message, MessageType } from '@chat/shared-types';
 import { wsClient } from '../../services/websocket';
 import { soundEffects } from '../../services/audio';
@@ -6,11 +6,13 @@ import { AttachmentMenu } from './AttachmentMenu';
 import { CameraModal } from './CameraModal';
 import { AttachmentPreviewModal, formatFileSize, getFileExtension, getFileIconAndBadgeColor } from './AttachmentPreviewModal';
 import { MediaLightboxModal } from './MediaLightboxModal';
-import { EmojiPicker } from './EmojiPicker';
+import { EmojiPicker, MediaPickerMode } from './EmojiPicker';
+import { getGiphyFallbacks } from './gifData';
 import {
   Send,
   Paperclip,
   Smile,
+  Sticker as StickerIcon,
   Phone,
   Video,
   ChevronLeft,
@@ -41,16 +43,27 @@ interface ParsedAttachment {
   fileSize?: number;
   fileUrl: string;
   caption?: string;
+  isGif?: boolean;
+  isSticker?: boolean;
 }
 
-function parseAttachment(content: string): ParsedAttachment | null {
-  try {
-    const data = JSON.parse(content);
-    if (data && typeof data === 'object' && (data.fileUrl || data.fileName)) {
-      return data as ParsedAttachment;
+function parseAttachment(content: string | any): ParsedAttachment | null {
+  if (!content) return null;
+  if (typeof content === 'object') {
+    if (content.fileUrl || content.fileName) {
+      return content as ParsedAttachment;
     }
-  } catch {
-    if (content.startsWith('http') || content.startsWith('/api/')) {
+  }
+  if (typeof content === 'string') {
+    try {
+      const data = JSON.parse(content);
+      if (data && typeof data === 'object' && (data.fileUrl || data.fileName)) {
+        return data as ParsedAttachment;
+      }
+    } catch {
+      // not JSON
+    }
+    if (content.startsWith('http') || content.startsWith('/api/') || content.startsWith('data:')) {
       return {
         fileUrl: content,
         fileName: 'attachment',
@@ -59,6 +72,38 @@ function parseAttachment(content: string): ParsedAttachment | null {
   }
   return null;
 }
+
+/**
+ * Resilient image and GIF component that automatically handles
+ * multi-CDN fallbacks, referrer policy, and prevents broken images across devices.
+ */
+const MessageMediaImage: React.FC<{
+  src: string;
+  alt: string;
+  className?: string;
+}> = ({ src, alt, className = '' }) => {
+  const fallbacks = useMemo(() => getGiphyFallbacks(src), [src]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  const handleError = () => {
+    if (currentIdx + 1 < fallbacks.length) {
+      setCurrentIdx((prev) => prev + 1);
+    }
+  };
+
+  const currentSrc = fallbacks[currentIdx] || src;
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      referrerPolicy="no-referrer"
+      crossOrigin="anonymous"
+      onError={handleError}
+    />
+  );
+};
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
   currentUser,
@@ -71,6 +116,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 }) => {
   const [inputText, setInputText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
+  const [mediaPickerMode, setMediaPickerMode] = useState<MediaPickerMode>('emojis');
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -194,6 +240,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  const handleSelectGif = (gifUrl: string, title?: string) => {
+    const payload = JSON.stringify({
+      fileUrl: gifUrl,
+      fileName: title ? `${title}.gif` : 'animation.gif',
+      isGif: true,
+      caption: '',
+    });
+    onSendMessage(payload, 'IMAGE');
+    soundEffects.playOutgoingSent();
+    setShowEmoji(false);
+  };
+
+  const handleSelectSticker = (stickerUrl: string, name?: string) => {
+    const payload = JSON.stringify({
+      fileUrl: stickerUrl,
+      fileName: name || 'sticker.png',
+      isSticker: true,
+    });
+    onSendMessage(payload, 'STICKER');
+    soundEffects.playOutgoingSent();
+    setShowEmoji(false);
+  };
+
   const handleSelectFiles = (files: File[]) => {
     setSelectedFiles(files);
     setShowPreviewModal(true);
@@ -297,15 +366,39 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }
 
   const renderMessageContent = (msg: Message) => {
+    if (msg.type === 'STICKER') {
+      const att = parseAttachment(msg.content);
+      const stickerUrl = att?.fileUrl || msg.content;
+      const fileName = att?.fileName || 'Sticker';
+
+      return (
+        <div className="message-sticker-bubble">
+          <img
+            src={stickerUrl}
+            alt={fileName}
+            className="message-sticker-content"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      );
+    }
+
     if (msg.type === 'IMAGE') {
       const att = parseAttachment(msg.content);
       const imgUrl = att?.fileUrl || msg.content;
       const caption = att?.caption;
       const fileName = att?.fileName || 'image.jpg';
       const senderName = msg.sender?.displayName || msg.sender?.username || 'Photo';
+      const isGif = Boolean(
+        att?.isGif ||
+        fileName.toLowerCase().endsWith('.gif') ||
+        imgUrl.toLowerCase().includes('.gif') ||
+        imgUrl.includes('giphy') ||
+        imgUrl.includes('tenor')
+      );
 
       return (
-        <div className="message-image-bubble">
+        <div className={`message-image-bubble ${isGif ? 'is-gif-bubble' : ''}`}>
           <div
             className="message-image-container"
             onClick={() =>
@@ -320,9 +413,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               })
             }
           >
-            <img src={imgUrl} alt={fileName} className="message-image-content" loading="lazy" />
+            <MessageMediaImage
+              src={imgUrl}
+              alt={fileName}
+              className="message-image-content"
+            />
+            {isGif && <span className="message-gif-badge-pill">GIF</span>}
             <div className="message-image-overlay">
-              <span className="view-fullscreen-hint">Click to enlarge</span>
+              <span className="view-fullscreen-hint">{isGif ? 'Click to view GIF' : 'Click to enlarge'}</span>
             </div>
           </div>
           {caption && <div className="message-attachment-caption">{caption}</div>}
@@ -500,16 +598,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         {messages.map((msg) => {
           const isOutgoing = msg.senderId === currentUser.id;
           const isMedia = msg.type === 'IMAGE' || msg.type === 'VIDEO';
+          const isSticker = msg.type === 'STICKER';
 
           return (
             <div
               key={msg.id || msg.clientMessageId}
-              className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'}`}
+              className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isSticker ? 'has-sticker-row' : ''}`}
             >
               <div
                 className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'} ${
                   isMedia ? 'has-media' : ''
-                } ${msg.type === 'DOCUMENT' ? 'has-document' : ''}`}
+                } ${msg.type === 'DOCUMENT' ? 'has-document' : ''} ${
+                  isSticker ? 'has-sticker' : ''
+                }`}
               >
                 {!isOutgoing && conversation.type === 'GROUP' && (
                   <div className="message-sender-name">
@@ -528,10 +629,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Emoji Picker Popup */}
+      {/* Emoji, GIF & Sticker Picker Popup */}
       {showEmoji && (
         <EmojiPicker
+          initialMode={mediaPickerMode}
           onSelectEmoji={handleEmojiClick}
+          onSelectGif={handleSelectGif}
+          onSelectSticker={handleSelectSticker}
           onClose={() => setShowEmoji(false)}
         />
       )}
@@ -579,12 +683,51 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {/* Chat Input Bar */}
       <div className="chat-input-bar">
         <button
-          className="icon-btn"
-          onClick={() => setShowEmoji(!showEmoji)}
+          className={`icon-btn ${showEmoji && mediaPickerMode === 'emojis' ? 'active' : ''}`}
+          onClick={() => {
+            if (showEmoji && mediaPickerMode === 'emojis') {
+              setShowEmoji(false);
+            } else {
+              setMediaPickerMode('emojis');
+              setShowEmoji(true);
+            }
+          }}
           title="Emojis"
           aria-label="Emojis"
         >
           <Smile size={22} />
+        </button>
+
+        <button
+          className={`icon-btn gif-input-btn ${showEmoji && mediaPickerMode === 'gifs' ? 'active' : ''}`}
+          onClick={() => {
+            if (showEmoji && mediaPickerMode === 'gifs') {
+              setShowEmoji(false);
+            } else {
+              setMediaPickerMode('gifs');
+              setShowEmoji(true);
+            }
+          }}
+          title="Search & Send GIFs"
+          aria-label="GIFs"
+        >
+          <span className="gif-btn-text">GIF</span>
+        </button>
+
+        <button
+          className={`icon-btn ${showEmoji && mediaPickerMode === 'stickers' ? 'active' : ''}`}
+          onClick={() => {
+            if (showEmoji && mediaPickerMode === 'stickers') {
+              setShowEmoji(false);
+            } else {
+              setMediaPickerMode('stickers');
+              setShowEmoji(true);
+            }
+          }}
+          title="Stickers"
+          aria-label="Stickers"
+        >
+          <StickerIcon size={21} />
         </button>
 
         <button

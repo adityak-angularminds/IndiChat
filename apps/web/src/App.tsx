@@ -135,12 +135,18 @@ export const App: React.FC = () => {
         const title = conv?.type === 'GROUP' ? (conv.title || 'Group Chat') : senderName;
 
         let previewText = msg.content;
-        if (msg.type === 'IMAGE') {
+        if (msg.type === 'STICKER') {
+          previewText = '🏷️ Sticker';
+        } else if (msg.type === 'IMAGE') {
           try {
             const data = JSON.parse(msg.content);
-            previewText = data.caption ? `📷 ${data.caption}` : '📷 Photo';
+            if (data.isGif || data.fileName?.toLowerCase().endsWith('.gif') || data.fileUrl?.toLowerCase().includes('.gif')) {
+              previewText = '🎞️ GIF';
+            } else {
+              previewText = data.caption ? `📷 ${data.caption}` : '📷 Photo';
+            }
           } catch {
-            previewText = '📷 Photo';
+            previewText = msg.content?.toLowerCase().includes('.gif') ? '🎞️ GIF' : '📷 Photo';
           }
         } else if (msg.type === 'VIDEO') {
           try {
