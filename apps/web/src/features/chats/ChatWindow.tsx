@@ -6,6 +6,7 @@ import { AttachmentMenu } from './AttachmentMenu';
 import { CameraModal } from './CameraModal';
 import { AttachmentPreviewModal, formatFileSize, getFileExtension, getFileIconAndBadgeColor } from './AttachmentPreviewModal';
 import { MediaLightboxModal } from './MediaLightboxModal';
+import { EmojiPicker } from './EmojiPicker';
 import {
   Send,
   Paperclip,
@@ -75,6 +76,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [lightboxMedia, setLightboxMedia] = useState<{
     isOpen: boolean;
@@ -187,7 +189,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleEmojiClick = (emoji: string) => {
     setInputText((prev) => prev + emoji);
-    setShowEmoji(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   const handleSelectFiles = (files: File[]) => {
@@ -526,38 +530,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Emoji Picker Popup */}
       {showEmoji && (
-        <div style={{
-          position: 'absolute',
-          bottom: '70px',
-          left: '20px',
-          backgroundColor: 'var(--bg-chat-header)',
-          borderRadius: '12px',
-          padding: '12px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(6, 1fr)',
-          gap: '8px',
-          boxShadow: 'var(--shadow-lg)',
-          zIndex: 100,
-          border: '1px solid var(--border-color)'
-        }}>
-          {['😀', '😂', '😍', '👍', '❤️', '🔥', '🎉', '🙏', '🚀', '✨', '👋', '😎'].map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => handleEmojiClick(emoji)}
-              style={{
-                fontSize: '1.4rem',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '6px'
-              }}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
+        <EmojiPicker
+          onSelectEmoji={handleEmojiClick}
+          onClose={() => setShowEmoji(false)}
+        />
       )}
 
       {/* WhatsApp Web Attachment Flyout Menu */}
@@ -622,6 +598,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
         <div className="input-box-wrapper">
           <textarea
+            ref={textareaRef}
             className="chat-textarea"
             placeholder="Type a message"
             rows={1}

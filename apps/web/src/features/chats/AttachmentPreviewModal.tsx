@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Smile, FileText, FileArchive, FileCode, FileSpreadsheet, Film, Music, File } from 'lucide-react';
 import { api } from '../../services/api';
 import { MessageType } from '@chat/shared-types';
+import { EmojiPicker } from './EmojiPicker';
 
 interface AttachmentPreviewModalProps {
   isOpen: boolean;
@@ -261,23 +262,11 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
 
         {/* Emoji Picker Popup */}
         {showEmoji && (
-          <div className="preview-emoji-picker">
-            {['😀', '😂', '😍', '👍', '❤️', '🔥', '🎉', '🙏', '🚀', '✨', '👋', '😎', '📎', '📸', '💯', '👏'].map(
-              (emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  className="preview-emoji-btn"
-                  onClick={() => {
-                    setCaption((prev) => prev + emoji);
-                    setShowEmoji(false);
-                  }}
-                >
-                  {emoji}
-                </button>
-              )
-            )}
-          </div>
+          <EmojiPicker
+            style={{ bottom: '84px', left: '24px' }}
+            onSelectEmoji={(emoji) => setCaption((prev) => prev + emoji)}
+            onClose={() => setShowEmoji(false)}
+          />
         )}
 
         {/* Bottom Input & WhatsApp Send Action */}
