@@ -36,19 +36,6 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   flags: <Flag size={18} />
 };
 
-const CATEGORY_NAMES: Record<string, string> = {
-  recent: 'Recent',
-  smileys: 'Smileys',
-  people: 'People',
-  animals: 'Animals',
-  food: 'Food',
-  activities: 'Activities',
-  travel: 'Travel',
-  objects: 'Objects',
-  symbols: 'Symbols',
-  flags: 'Flags'
-};
-
 const RECENT_STORAGE_KEY = 'chat_recent_emojis';
 const MAX_RECENT = 32;
 
@@ -229,9 +216,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         {searchResults !== null ? (
           // Search Results Mode
           <div className="emoji-category-section">
-            <div className="emoji-category-title">
-              SEARCH RESULTS ({searchResults.length})
-            </div>
             {searchResults.length === 0 ? (
               <div className="emoji-no-results">
                 No emojis found matching "{searchQuery}"
@@ -256,9 +240,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         ) : activeTab === 'recent' ? (
           // Separate Tab: Recent Emojis ONLY
           <div className="emoji-category-section">
-            <div className="emoji-category-title">
-              RECENTLY USED ({recentEmojis.length})
-            </div>
             {recentEmojis.length === 0 ? (
               <div className="emoji-no-results">
                 No recently used emojis yet. Click on any emoji to add it here!
@@ -282,9 +263,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         ) : (
           // Separate Tab: Active Category Emojis ONLY
           <div className="emoji-category-section">
-            <div className="emoji-category-title">
-              {currentCategory.name.toUpperCase()} ({currentCategory.emojis.length})
-            </div>
             <div className="emoji-grid">
               {currentCategory.emojis.map((item) => (
                 <button
@@ -301,17 +279,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Bottom Status / Tab Label Indicator */}
-      <div className="emoji-picker-footer">
-        <span className="emoji-footer-label">
-          {searchQuery
-            ? `Search: "${searchQuery}"`
-            : activeTab === 'recent'
-            ? '🕒 Recently Used'
-            : `${currentCategory.name} (${currentCategory.emojis.length})`}
-        </span>
       </div>
     </div>
   );
