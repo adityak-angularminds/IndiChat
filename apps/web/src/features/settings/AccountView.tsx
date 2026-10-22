@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { User } from '@chat/shared-types';
 import { AppSettings, settingsService } from '../../services/settings';
+import { api } from '../../services/api';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import { ChangePhoneModal } from './ChangePhoneModal';
 import { PasskeyModal } from './PasskeyModal';
@@ -49,20 +50,32 @@ export const AccountView: React.FC<AccountViewProps> = ({
     settingsService.update({ securityNotifications: checked });
   };
 
-  const handleSaveEmail = (e: React.FormEvent) => {
+  const handleSaveEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    settingsService.update({ email: emailInput.trim(), emailVerified: true });
-    if (onUpdateUser) onUpdateUser({ email: emailInput.trim() });
-    setShowEmailModal(false);
+    const cleanEmail = emailInput.trim();
+    if (!cleanEmail) return;
+    try {
+      await api.updateProfile({ email: cleanEmail });
+      settingsService.update({ email: cleanEmail, emailVerified: true });
+      if (onUpdateUser) onUpdateUser({ email: cleanEmail });
+      setShowEmailModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update email');
+    }
   };
 
-  const handleSaveUsername = (e: React.FormEvent) => {
+  const handleSaveUsername = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usernameInput.trim()) return;
     const clean = usernameInput.trim().replace(/^@/, '').toLowerCase();
-    settingsService.update({ username: clean });
-    if (onUpdateUser) onUpdateUser({ username: clean });
-    setShowUsernameModal(false);
+    try {
+      await api.updateProfile({ username: clean });
+      settingsService.update({ username: clean });
+      if (onUpdateUser) onUpdateUser({ username: clean });
+      setShowUsernameModal(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update username');
+    }
   };
 
   const displayPhone = currentUser.phoneNumber || settings.phoneNumber || '+91 98765 43210';
@@ -254,8 +267,14 @@ export const AccountView: React.FC<AccountViewProps> = ({
         isOpen={showPhoneModal}
         onClose={() => setShowPhoneModal(false)}
         currentPhoneNumber={displayPhone}
-        onPhoneChanged={(newPhone) => {
-          if (onUpdateUser) onUpdateUser({ phoneNumber: newPhone });
+        onPhoneChanged={async (newPhone) => {
+          try {
+            await api.updateProfile({ phoneNumber: newPhone });
+            settingsService.update({ phoneNumber: newPhone });
+            if (onUpdateUser) onUpdateUser({ phoneNumber: newPhone });
+          } catch (err: any) {
+            console.error('Failed to update phone on backend', err);
+          }
         }}
       />
 

@@ -26,6 +26,17 @@ export const ChatBackupModal: React.FC<ChatBackupModalProps> = ({
     size: settingsService.getSettings().backupSize,
   }));
   const [copied, setCopied] = useState(false);
+  const [serverBackup, setServerBackup] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      settingsService.fetchServerBackup().then((data) => {
+        if (data && data.conversations) {
+          setServerBackup(data);
+        }
+      });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -71,7 +82,7 @@ export const ChatBackupModal: React.FC<ChatBackupModalProps> = ({
     };
   };
 
-  const backupData = generateBackupData();
+  const backupData = serverBackup || generateBackupData();
   const jsonString = JSON.stringify(backupData, null, 2);
 
   const handleBackupNow = () => {

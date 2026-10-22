@@ -23,6 +23,10 @@ export const LinkedDevicesView: React.FC<LinkedDevicesViewProps> = ({ settings, 
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<LinkedDevice | null>(null);
 
+  React.useEffect(() => {
+    settingsService.syncWithBackend();
+  }, []);
+
   const getPlatformIcon = (platform: LinkedDevice['platform']) => {
     switch (platform) {
       case 'windows':

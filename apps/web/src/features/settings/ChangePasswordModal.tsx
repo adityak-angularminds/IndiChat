@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Lock, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
+import { api } from '../../services/api';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
 
   const strength = getStrength(newPassword);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -51,7 +52,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await api.changePassword({ currentPassword, newPassword });
       setLoading(false);
       setSuccess(true);
       setTimeout(() => {
@@ -61,7 +63,10 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen
         setConfirmPassword('');
         setSuccess(false);
       }, 1500);
-    }, 800);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err.message || 'Failed to update password');
+    }
   };
 
   return (

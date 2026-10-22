@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -27,6 +28,24 @@ public class ConversationController {
     public ResponseEntity<List<ConversationDto>> getConversations(@AuthenticationPrincipal CustomUserDetails userDetails) {
         List<ConversationDto> conversations = conversationService.getUserConversations(userDetails.getId());
         return ResponseEntity.ok(conversations);
+    }
+
+    @GetMapping("/backup")
+    public ResponseEntity<Map<String, Object>> getBackup(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        Map<String, Object> backup = conversationService.generateChatBackup(userDetails.getId());
+        return ResponseEntity.ok(backup);
+    }
+
+    @DeleteMapping("/messages/clear")
+    public ResponseEntity<Map<String, String>> clearAllMessages(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        conversationService.clearAllMessages(userDetails.getId());
+        return ResponseEntity.ok(Map.of("message", "All messages cleared successfully"));
+    }
+
+    @DeleteMapping("/all")
+    public ResponseEntity<Map<String, String>> deleteAllChats(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        conversationService.deleteAllChats(userDetails.getId());
+        return ResponseEntity.ok(Map.of("message", "All chats deleted successfully"));
     }
 
     @GetMapping("/{id}")

@@ -135,5 +135,77 @@ export const api = {
 
     return res.json();
   },
+
+  // User Profile & Account Settings
+  updateProfile: (data: { displayName?: string; username?: string; email?: string; phoneNumber?: string }) =>
+    request<User>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<{ message: string }>('/users/me/password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updatePasskey: (enabled: boolean) =>
+    request<{ message: string }>('/users/me/passkey', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
+
+  updateTwoFactor: (enabled: boolean, pin?: string) =>
+    request<{ message: string }>('/users/me/2fa', {
+      method: 'POST',
+      body: JSON.stringify({ enabled, pin }),
+    }),
+
+  // Linked Devices
+  getLinkedDevices: () => request<any[]>('/devices'),
+
+  linkDevice: (data: {
+    deviceName: string;
+    platform?: string;
+    browser?: string;
+    location?: string;
+    ipAddress?: string;
+  }) =>
+    request<any>('/devices/link', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  removeLinkedDevice: (deviceId: string) =>
+    request<{ message: string }>(`/devices/${deviceId}`, {
+      method: 'DELETE',
+    }),
+
+  removeOtherLinkedDevices: () =>
+    request<{ message: string }>('/devices/others', {
+      method: 'DELETE',
+    }),
+
+  // Settings & Privacy
+  getUserSettings: () => request<any>('/settings'),
+
+  updateUserSettings: (data: any) =>
+    request<any>('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // Chat Backup & History
+  getChatBackup: () => request<any>('/conversations/backup'),
+
+  clearAllMessages: () =>
+    request<{ message: string }>('/conversations/messages/clear', {
+      method: 'DELETE',
+    }),
+
+  deleteAllChats: () =>
+    request<{ message: string }>('/conversations/all', {
+      method: 'DELETE',
+    }),
 };
 

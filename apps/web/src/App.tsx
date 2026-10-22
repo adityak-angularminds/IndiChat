@@ -12,6 +12,7 @@ import { CallModal } from './features/calls/CallModal';
 import { NotificationModal } from './features/notifications/NotificationModal';
 import { NotificationToastContainer } from './features/notifications/NotificationToastContainer';
 import { generateUUID } from './utils/uuid';
+import { settingsService } from './services/settings';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -66,6 +67,7 @@ export const App: React.FC = () => {
         wsClient.connect(token);
         loadConversations();
         notificationService.syncDeviceToken();
+        settingsService.syncWithBackend();
       })
       .catch(() => {
         localStorage.removeItem('chat_access_token');
@@ -289,6 +291,7 @@ export const App: React.FC = () => {
     wsClient.connect(res.tokens.accessToken);
     loadConversations();
     notificationService.syncDeviceToken();
+    settingsService.syncWithBackend();
   };
 
   const handleLogout = () => {
@@ -451,11 +454,24 @@ export const App: React.FC = () => {
         isMobileOpen={isMobileOpen}
         messages={messages}
         onUpdateUser={(updated) => setCurrentUser((prev) => (prev ? { ...prev, ...updated } : prev))}
-        onClearAllMessages={() => setMessages([])}
-        onDeleteAllChats={() => {
-          setConversations([]);
-          setActiveConversationId(null);
-          setMessages([]);
+        onClearAllMessages={async () => {
+          try {
+            await api.clearAllMessages();
+            setMessages([]);
+            loadConversations();
+          } catch (e) {
+            console.error('Failed to clear all messages on backend', e);
+          }
+        }}
+        onDeleteAllChats={async () => {
+          try {
+            await api.deleteAllChats();
+            setConversations([]);
+            setActiveConversationId(null);
+            setMessages([]);
+          } catch (e) {
+            console.error('Failed to delete all chats on backend', e);
+          }
         }}
       />
 

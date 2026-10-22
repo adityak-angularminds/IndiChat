@@ -43,4 +43,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
         @Param("conversationId") UUID conversationId,
         @Param("userId") UUID userId
     );
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Message m WHERE m.conversation.id = :conversationId")
+    void deleteByConversationId(@Param("conversationId") UUID conversationId);
 }
