@@ -37,6 +37,7 @@ export const App: React.FC = () => {
     targetName: string;
     isVideo: boolean;
     isIncoming: boolean;
+    incomingOfferData?: any;
   } | null>(null);
 
   // Initialize theme and title
@@ -281,15 +282,19 @@ export const App: React.FC = () => {
     // 5. Call Signal
     const unsubCall = wsClient.onCallSignal((signal) => {
       if (signal.signalType === 'offer' && signal.senderUserId) {
-        const caller = conversations
-          .flatMap((c) => c.members)
-          .find((m) => m.userId === signal.senderUserId)?.user;
+        const callerNameFromSignal = (signal.data as any)?.callerName;
+        const matchingMember = conversations
+          .flatMap((c) => c.members || [])
+          .find((m) => m && (m.userId === signal.senderUserId || m.user?.id === signal.senderUserId));
+        const caller = matchingMember?.user;
+        const targetName = callerNameFromSignal || caller?.displayName || caller?.username || 'Incoming Caller';
 
         setActiveCall({
           targetUserId: signal.senderUserId,
-          targetName: caller?.displayName || 'Incoming Caller',
-          isVideo: false,
+          targetName,
+          isVideo: Boolean((signal.data as any)?.isVideo),
           isIncoming: true,
+          incomingOfferData: signal.data,
         });
       } else if (signal.signalType === 'hangup') {
         setActiveCall(null);
@@ -452,27 +457,34 @@ export const App: React.FC = () => {
 
     setActiveCall({
       targetUserId,
-      targetName: targetMember?.user?.displayName || 'Contact',
+      targetName: targetMember?.user?.displayName || targetMember?.user?.username || 'Contact',
       isVideo,
       isIncoming: false,
     });
-
-    wsClient.sendCallSignal({
-      targetUserId,
-      signalType: 'offer',
-      data: { isVideo },
-    });
   };
 
-  const handleHangupCall = () => {
-    if (activeCall) {
-      wsClient.sendCallSignal({
-        targetUserId: activeCall.targetUserId,
-        signalType: 'hangup',
-        data: {},
-      });
-      setActiveCall(null);
+  const handleHangupCall = (stats?: { duration: number; connected: boolean; isVideo: boolean }) => {
+    if (activeCall && activeConversationId) {
+      const isConnected = Boolean(stats?.connected && (stats?.duration ?? 0) > 0);
+      let durationText: string;
+      if (isConnected) {
+        const d = stats!.duration;
+        durationText = d < 60 ? `${d} sec` : `${Math.floor(d / 60)} min ${d % 60} sec`;
+      } else {
+        durationText = activeCall.isIncoming ? 'Missed' : 'No answer';
+      }
+
+      const callPayload = {
+        callType: activeCall.isVideo ? 'video' : 'voice',
+        status: isConnected ? 'connected' : activeCall.isIncoming ? 'missed' : 'no_answer',
+        duration: stats?.duration || 0,
+        durationText,
+        endedAt: new Date().toISOString(),
+      };
+
+      handleSendMessage(JSON.stringify(callPayload), 'CALL');
     }
+    setActiveCall(null);
   };
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
@@ -571,17 +583,13 @@ export const App: React.FC = () => {
 
       {activeCall && (
         <CallModal
+          targetUserId={activeCall.targetUserId}
           targetName={activeCall.targetName}
+          callerName={currentUser?.displayName || currentUser?.username || 'IndiChat User'}
           isVideo={activeCall.isVideo}
           isIncoming={activeCall.isIncoming}
+          incomingOfferData={activeCall.incomingOfferData}
           onHangup={handleHangupCall}
-          onAnswer={() => {
-            wsClient.sendCallSignal({
-              targetUserId: activeCall.targetUserId,
-              signalType: 'answer',
-              data: {},
-            });
-          }}
         />
       )}
 

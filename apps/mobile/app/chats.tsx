@@ -23,6 +23,8 @@ import { User, Conversation, Message, MessageReceipt } from '@chat/shared-types'
 import { api } from '../services/api';
 import { wsClient } from '../services/websocket';
 import { storage, STORAGE_KEYS } from '../services/storage';
+import { formatCallTimeAge } from '../utils/timeAgo';
+import { callHistoryService, CallHistoryItem } from '../services/callHistory';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -51,17 +53,7 @@ interface ChatItemData {
   rawConversation?: Conversation;
 }
 
-export interface CallHistoryItem {
-  id: string;
-  contactName: string;
-  subtitle?: string;
-  callCount?: number;
-  type: 'incoming' | 'outgoing' | 'missed';
-  isVideo: boolean;
-  timeStr: string;
-  duration?: string;
-  dataUsed?: string;
-}
+export type { CallHistoryItem };
 
 // Meta AI 8-petal glowing swirl
 const META_AI_SWIRL_COLORS = [
@@ -153,22 +145,50 @@ export default function ChatsScreen() {
   } | null>(null);
 
   // Helper to record a call in callHistory & storage
-  const recordCall = useCallback((contactName: string, isVideo: boolean, subtitle?: string) => {
-    const newCall: CallHistoryItem = {
-      id: `call-${Date.now()}`,
+  const recordCall = useCallback((contactName: string, isVideo: boolean, subtitle?: string, type: 'incoming' | 'outgoing' | 'missed' = 'outgoing', conversationId?: string) => {
+    callHistoryService.addCall({
+      conversationId,
       contactName,
-      subtitle,
-      type: 'outgoing',
       isVideo,
-      timeStr: 'Just now',
-      duration: 'Ongoing',
-    };
-    setCallHistory((prev) => {
-      const updated = [newCall, ...prev];
-      storage.setJson(STORAGE_KEYS.CALL_HISTORY, updated);
-      return updated;
+      type,
+      subtitle,
+      duration: subtitle || (type === 'missed' ? 'Missed' : 'Ongoing'),
     });
   }, []);
+
+  // Helper to initiate a call with a contact
+  const navigateToCall = useCallback(
+    (contactName: string, isVideo: boolean, subtitle?: string) => {
+      const matchingConv = conversations.find((c) => {
+        const other = c.members?.find((m) => m.userId !== currentUser?.id);
+        const otherName = other?.user?.displayName || other?.user?.username || c.title;
+        return (
+          otherName?.toLowerCase() === contactName.toLowerCase() ||
+          c.title?.toLowerCase() === contactName.toLowerCase()
+        );
+      });
+
+      recordCall(contactName, isVideo, subtitle, 'outgoing', matchingConv?.id);
+
+      if (matchingConv) {
+        const other = matchingConv.members?.find((m) => m.userId !== currentUser?.id);
+        const targetUserId = other?.userId || other?.user?.id || '';
+        router.push(
+          `/chat/${matchingConv.id}?name=${encodeURIComponent(contactName)}&targetUserId=${targetUserId}&autoCall=${isVideo ? 'video' : 'voice'}`
+        );
+      } else if (conversations.length > 0) {
+        const firstConv = conversations[0];
+        const other = firstConv.members?.find((m) => m.userId !== currentUser?.id);
+        const targetUserId = other?.userId || other?.user?.id || '';
+        router.push(
+          `/chat/${firstConv.id}?name=${encodeURIComponent(contactName)}&targetUserId=${targetUserId}&autoCall=${isVideo ? 'video' : 'voice'}`
+        );
+      } else {
+        Alert.alert('No Contacts Available', 'Start a conversation with a user first before calling.');
+      }
+    },
+    [conversations, currentUser?.id, recordCall, router]
+  );
 
   // Load conversations and call history from backend / storage
   const loadData = useCallback(async () => {
@@ -185,7 +205,7 @@ export default function ChatsScreen() {
       if (list) {
         setConversations(list);
       }
-      const savedCalls = await storage.getJson<CallHistoryItem[]>(STORAGE_KEYS.CALL_HISTORY);
+      const savedCalls = await callHistoryService.getHistory();
       if (savedCalls) {
         setCallHistory(savedCalls);
       }
@@ -199,7 +219,19 @@ export default function ChatsScreen() {
 
   useEffect(() => {
     loadData();
+    const unsubHistory = callHistoryService.onHistoryChange((calls) => {
+      setCallHistory(calls);
+    });
+    return () => unsubHistory();
   }, [loadData]);
+
+  // Keep call timeage labels updated live every 30 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCallHistory((prev) => [...prev]);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Refresh conversations and unread counts whenever screen comes into focus
   useFocusEffect(
@@ -313,7 +345,7 @@ export default function ChatsScreen() {
       });
       setShowNewChatModal(false);
       setConversations((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)]);
-      router.push(`/chat/${conv.id}?name=${encodeURIComponent(targetUser.displayName || targetUser.username)}&type=DIRECT`);
+      router.push(`/chat/${conv.id}?name=${encodeURIComponent(targetUser.displayName || targetUser.username)}&type=DIRECT&targetUserId=${targetUser.id}`);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to start chat');
     } finally {
@@ -596,7 +628,11 @@ export default function ChatsScreen() {
           setConversations((prev) =>
             prev.map((c) => (c.id === item.id ? { ...c, unreadCount: 0 } : c))
           );
-          router.push(`/chat/${item.id}?name=${encodeURIComponent(item.title)}&type=${item.type}&unread=${item.unreadCount || 0}`);
+          const other = item.rawConversation?.members?.find((m) => m.userId !== currentUser?.id);
+          const targetUserId = other?.userId || other?.user?.id || '';
+          router.push(
+            `/chat/${item.id}?name=${encodeURIComponent(item.title)}&type=${item.type}&targetUserId=${targetUserId}&unread=${item.unreadCount || 0}`
+          );
         }}
       >
         {/* Avatar with optional Timer Badge */}
@@ -810,15 +846,13 @@ export default function ChatsScreen() {
               {
                 text: 'Voice Call',
                 onPress: () => {
-                  recordCall(item.contactName, false, item.subtitle);
-                  router.push(`/chat/c-call?name=${encodeURIComponent(item.contactName)}&callType=voice`);
+                  navigateToCall(item.contactName, false, item.subtitle);
                 },
               },
               {
                 text: 'Video Call',
                 onPress: () => {
-                  recordCall(item.contactName, true, item.subtitle);
-                  router.push(`/chat/c-call?name=${encodeURIComponent(item.contactName)}&callType=video`);
+                  navigateToCall(item.contactName, true, item.subtitle);
                 },
               },
             ]
@@ -874,7 +908,7 @@ export default function ChatsScreen() {
 
         {/* Right: Timestamp and Info Icon */}
         <View style={styles.callRightContainer}>
-          <Text style={styles.callTimeText}>{item.timeStr}</Text>
+          <Text style={styles.callTimeText}>{formatCallTimeAge(item.timestamp || item.timeStr)}</Text>
           <TouchableOpacity
             style={styles.callInfoBtn}
             onPress={() => setSelectedCallDetails(item)}
@@ -1273,7 +1307,7 @@ export default function ChatsScreen() {
                       {selectedCallDetails.isVideo ? 'Video' : 'Voice'} Call
                     </Text>
                     <Text style={styles.callDetailsMeta}>
-                      {selectedCallDetails.timeStr} • {selectedCallDetails.duration || '4 mins 20 secs'}
+                      {formatCallTimeAge(selectedCallDetails.timestamp || selectedCallDetails.timeStr)} • {selectedCallDetails.duration || 'Ongoing'}
                     </Text>
                   </View>
                   <Text style={styles.callDataText}>{selectedCallDetails.dataUsed || '14.2 MB'}</Text>
@@ -1286,7 +1320,7 @@ export default function ChatsScreen() {
                     onPress={() => {
                       const name = selectedCallDetails.contactName;
                       setSelectedCallDetails(null);
-                      router.push(`/chat/c-call?name=${encodeURIComponent(name)}&callType=voice`);
+                      navigateToCall(name, false);
                     }}
                   >
                     <Ionicons name="call" size={20} color="#25D366" />
@@ -1298,7 +1332,7 @@ export default function ChatsScreen() {
                     onPress={() => {
                       const name = selectedCallDetails.contactName;
                       setSelectedCallDetails(null);
-                      router.push(`/chat/c-call?name=${encodeURIComponent(name)}&callType=video`);
+                      navigateToCall(name, true);
                     }}
                   >
                     <Ionicons name="videocam" size={20} color="#25D366" />
@@ -1310,7 +1344,18 @@ export default function ChatsScreen() {
                     onPress={() => {
                       const name = selectedCallDetails.contactName;
                       setSelectedCallDetails(null);
-                      router.push(`/chat/c-chat?name=${encodeURIComponent(name)}&type=DIRECT`);
+                      const matchingConv = conversations.find((c) => {
+                        const other = c.members?.find((m) => m.userId !== currentUser?.id);
+                        const otherName = other?.user?.displayName || other?.user?.username || c.title;
+                        return otherName?.toLowerCase() === name.toLowerCase();
+                      });
+                      if (matchingConv) {
+                        const other = matchingConv.members?.find((m) => m.userId !== currentUser?.id);
+                        const targetUserId = other?.userId || other?.user?.id || '';
+                        router.push(`/chat/${matchingConv.id}?name=${encodeURIComponent(name)}&targetUserId=${targetUserId}&type=DIRECT`);
+                      } else if (conversations.length > 0) {
+                        router.push(`/chat/${conversations[0].id}?name=${encodeURIComponent(name)}&type=DIRECT`);
+                      }
                     }}
                   >
                     <Ionicons name="chatbubble-ellipses" size={20} color="#25D366" />
@@ -1380,14 +1425,13 @@ export default function ChatsScreen() {
                   style={styles.keypadCallBtn}
                   onPress={() => {
                     if (!keypadNumber.trim()) {
-                      Alert.alert('Enter Number', 'Please enter a phone number to call.');
+                      Alert.alert('Enter Number', 'Please enter a phone number or name to call.');
                       return;
                     }
                     const num = keypadNumber.trim();
                     setShowKeypadModal(false);
                     setKeypadNumber('');
-                    recordCall(num, false);
-                    router.push(`/chat/c-call?name=${encodeURIComponent(num)}&callType=voice`);
+                    navigateToCall(num, false);
                   }}
                   activeOpacity={0.8}
                 >
@@ -1437,7 +1481,11 @@ export default function ChatsScreen() {
                             onPress={() => {
                               setShowNewCallModal(false);
                               recordCall(name, false);
-                              router.push(`/chat/c-call?name=${encodeURIComponent(name)}&callType=voice`);
+                              const member = conv.members?.find((m) => m.userId !== currentUser?.id);
+                              const targetUserId = member?.userId || member?.user?.id || '';
+                              router.push(
+                                `/chat/${conv.id}?name=${encodeURIComponent(name)}&targetUserId=${targetUserId}&autoCall=voice`
+                              );
                             }}
                           >
                             <Ionicons name="call" size={22} color="#25D366" />
@@ -1446,7 +1494,11 @@ export default function ChatsScreen() {
                             onPress={() => {
                               setShowNewCallModal(false);
                               recordCall(name, true);
-                              router.push(`/chat/c-call?name=${encodeURIComponent(name)}&callType=video`);
+                              const member = conv.members?.find((m) => m.userId !== currentUser?.id);
+                              const targetUserId = member?.userId || member?.user?.id || '';
+                              router.push(
+                                `/chat/${conv.id}?name=${encodeURIComponent(name)}&targetUserId=${targetUserId}&autoCall=video`
+                              );
                             }}
                           >
                             <Ionicons name="videocam" size={22} color="#25D366" />
@@ -1721,7 +1773,31 @@ export default function ChatsScreen() {
                       signalType: 'answer',
                       data: {},
                     });
+                    const senderId = incomingCall.senderUserId;
+                    const callerName = incomingCall.callerName;
+                    const isVideo = incomingCall.isVideo;
                     setIncomingCall(null);
+                    recordCall(callerName, isVideo, 'Incoming Call');
+
+                    const conv = conversations.find((c) =>
+                      c.members?.some((m) => m.userId === senderId || m.user?.id === senderId)
+                    );
+
+                    if (conv) {
+                      router.push(
+                        `/chat/${conv.id}?name=${encodeURIComponent(callerName)}&targetUserId=${senderId}&acceptedCall=${isVideo ? 'video' : 'voice'}`
+                      );
+                    } else {
+                      api.createConversation({ type: 'DIRECT', participantIds: [senderId] }).then((newConv) => {
+                        router.push(
+                          `/chat/${newConv.id}?name=${encodeURIComponent(callerName)}&targetUserId=${senderId}&acceptedCall=${isVideo ? 'video' : 'voice'}`
+                        );
+                      }).catch(() => {
+                        router.push(
+                          `/chat/direct-${senderId}?name=${encodeURIComponent(callerName)}&targetUserId=${senderId}&acceptedCall=${isVideo ? 'video' : 'voice'}`
+                        );
+                      });
+                    }
                   }}
                 >
                   <Ionicons name="call" size={26} color="#fff" />

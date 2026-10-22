@@ -10,6 +10,7 @@ import com.chat.message.service.MessageService;
 import com.chat.notification.service.PushNotificationService;
 import com.chat.presence.PresenceService;
 import com.chat.security.JwtTokenProvider;
+import com.chat.user.entity.User;
 import com.chat.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -270,16 +271,70 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void handleCallSignal(UUID senderId, JsonNode payload) {
-        UUID targetUserId = UUID.fromString(payload.path("targetUserId").asText());
+        String targetStr = payload.path("targetUserId").asText(null);
+        if (targetStr == null || targetStr.isBlank()) {
+            log.warn("Call signal ignored: targetUserId is missing or blank from sender {}", senderId);
+            return;
+        }
+
+        UUID targetUserId;
+        try {
+            targetUserId = UUID.fromString(targetStr);
+        } catch (IllegalArgumentException e) {
+            log.warn("Call signal ignored: invalid targetUserId '{}' from sender {}", targetStr, senderId);
+            return;
+        }
+
+        String signalType = payload.path("signalType").asText("offer");
+        JsonNode data = payload.path("data");
+
+        // Auto-resolve if client passed a conversationId instead of targetUserId
+        if (!userRepository.existsById(targetUserId)) {
+            List<ConversationMember> members = memberRepository.findByIdConversationId(targetUserId);
+            if (!members.isEmpty()) {
+                Optional<UUID> otherMemberId = members.stream()
+                    .map(m -> m.getUser().getId())
+                    .filter(id -> !id.equals(senderId))
+                    .findFirst();
+                if (otherMemberId.isPresent()) {
+                    log.info("Resolved call targetUserId from conversation {} to participant {}", targetUserId, otherMemberId.get());
+                    targetUserId = otherMemberId.get();
+                }
+            }
+        }
+
+        Map<String, Object> innerPayload = new HashMap<>();
+        innerPayload.put("targetUserId", targetUserId.toString());
+        innerPayload.put("senderUserId", senderId.toString());
+        innerPayload.put("signalType", signalType);
+        innerPayload.put("data", data);
+
         Map<String, Object> event = Map.of(
             "type", "call.signal",
-            "payload", Map.of(
-                "senderUserId", senderId.toString(),
-                "signalType", payload.path("signalType").asText(),
-                "data", payload.path("data")
-            )
+            "payload", innerPayload
         );
         sendToUser(targetUserId, event);
+        log.info("Relayed call.signal [{}] from {} to {}", signalType, senderId, targetUserId);
+
+        if ("offer".equals(signalType)) {
+            try {
+                User sender = userRepository.findById(senderId).orElse(null);
+                String callerName = sender != null ? sender.getDisplayName() : "Incoming Caller";
+                boolean isVideo = data != null && data.path("isVideo").asBoolean(false);
+                Map<String, Object> pushData = new HashMap<>();
+                pushData.put("type", "call");
+                pushData.put("callerId", senderId.toString());
+                pushData.put("isVideo", String.valueOf(isVideo));
+                pushNotificationService.sendPushToUser(
+                    targetUserId,
+                    callerName,
+                    "Incoming " + (isVideo ? "Video" : "Voice") + " Call...",
+                    pushData
+                );
+            } catch (Exception pe) {
+                log.debug("Push notification skipped for call: {}", pe.getMessage());
+            }
+        }
     }
 
     private void broadcastPresence(UUID userId, boolean isOnline, Instant timestamp) {
@@ -302,10 +357,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     public void sendToUser(UUID userId, Object payload) {
         Set<WebSocketSession> sessions = userSessions.get(userId);
-        if (sessions != null) {
+        if (sessions != null && !sessions.isEmpty()) {
             for (WebSocketSession s : sessions) {
                 sendToSession(s, payload);
             }
+            log.info("Delivered WebSocket message to user {} (active sessions: {})", userId, sessions.size());
+        } else {
+            log.warn("Cannot deliver message: User {} has NO active WebSocket sessions! Connected users: {}", userId, userSessions.keySet());
         }
     }
 
