@@ -65,6 +65,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     if (notificationStatus === 'granted') {
       notificationService.showNotification('WhatsApp Notifications', {
         body: 'Push notifications are enabled and active!',
+        username: currentUser.username || currentUser.displayName,
       });
       return;
     }
@@ -79,6 +80,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     if (res === 'granted') {
       notificationService.showNotification('WhatsApp Notifications Active', {
         body: 'You will now receive desktop alerts for incoming messages.',
+        username: currentUser.username || currentUser.displayName,
       });
     }
   };

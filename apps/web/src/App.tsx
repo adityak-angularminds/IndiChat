@@ -10,7 +10,6 @@ import { AuthModal } from './features/auth/AuthModal';
 import { NewChatModal } from './features/chats/NewChatModal';
 import { CallModal } from './features/calls/CallModal';
 import { NotificationModal } from './features/notifications/NotificationModal';
-import { NotificationToastContainer } from './features/notifications/NotificationToastContainer';
 import { generateUUID } from './utils/uuid';
 import { resetDeviceId } from './utils/device';
 import { settingsService } from './services/settings';
@@ -180,11 +179,13 @@ export const App: React.FC = () => {
         }
 
         const body = conv?.type === 'GROUP' ? `${senderName}: ${previewText}` : previewText;
+        const username = msg.sender?.username || senderName;
 
         notificationService.showNotification(title, {
           body,
           tag: msg.conversationId,
-          avatar: senderName.charAt(0).toUpperCase(),
+          username,
+          avatar: username.charAt(0).toUpperCase(),
           onClick: () => {
             setActiveConversationId(msg.conversationId);
             setIsMobileOpen(false);
@@ -500,7 +501,6 @@ export const App: React.FC = () => {
           reason={sessionRevokedReason || undefined}
           onClose={() => setSessionRevokedReason(null)}
         />
-        <NotificationToastContainer />
       </>
     );
   }
@@ -585,8 +585,6 @@ export const App: React.FC = () => {
           notificationService.syncDeviceToken();
         }}
       />
-
-      <NotificationToastContainer />
     </div>
   );
 };
