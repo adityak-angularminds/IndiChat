@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { api } from './api';
+import { storage, STORAGE_KEYS } from './storage';
 
 // Configure default notification handler for in-app alert display
 Notifications.setNotificationHandler({
@@ -15,10 +17,7 @@ Notifications.setNotificationHandler({
 /**
  * Request notification permissions and register the Expo push token with the backend.
  */
-export async function registerForPushNotificationsAsync(
-  backendUrl = 'http://192.168.0.70:8080',
-  authToken?: string
-): Promise<string | null> {
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
   let token: string | null = null;
 
   try {
@@ -49,19 +48,10 @@ export async function registerForPushNotificationsAsync(
     token = pushTokenData.data;
     console.log('[Push] Expo push token obtained:', token);
 
-    // Sync token with backend if auth token is present
+    // Sync token with backend if user is authenticated
+    const authToken = await storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (authToken && token) {
-      await fetch(`${backendUrl}/api/v1/devices/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          token,
-          platform: Platform.OS,
-        }),
-      });
+      await api.registerDeviceToken(token, Platform.OS);
       console.log('[Push] Registered push token with backend successfully');
     }
   } catch (error) {
