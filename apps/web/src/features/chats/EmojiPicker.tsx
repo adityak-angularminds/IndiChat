@@ -36,8 +36,21 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   flags: <Flag size={18} />
 };
 
+const CATEGORY_NAMES: Record<string, string> = {
+  recent: 'Recent',
+  smileys: 'Smileys',
+  people: 'People',
+  animals: 'Animals',
+  food: 'Food',
+  activities: 'Activities',
+  travel: 'Travel',
+  objects: 'Objects',
+  symbols: 'Symbols',
+  flags: 'Flags'
+};
+
 const RECENT_STORAGE_KEY = 'chat_recent_emojis';
-const MAX_RECENT = 24;
+const MAX_RECENT = 32;
 
 export const EmojiPicker: React.FC<EmojiPickerProps> = ({
   onSelectEmoji,
@@ -46,7 +59,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
   style
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('smileys');
+  const [activeTab, setActiveTab] = useState<string>('smileys');
   const [recentEmojis, setRecentEmojis] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(RECENT_STORAGE_KEY);
@@ -99,6 +112,15 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
     });
   };
 
+  // Switch tab and reset scroll position
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    setSearchQuery('');
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  };
+
   // Filter emojis based on search query
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
@@ -122,20 +144,10 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
     return matches;
   }, [searchQuery]);
 
-  // Scroll to category
-  const scrollToCategory = (categoryId: string) => {
-    setActiveCategory(categoryId);
-    setSearchQuery('');
-
-    if (scrollContainerRef.current) {
-      const section = scrollContainerRef.current.querySelector(
-        `[data-category-id="${categoryId}"]`
-      );
-      if (section) {
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  };
+  // Current active category
+  const currentCategory = useMemo(() => {
+    return EMOJI_CATEGORIES.find((cat) => cat.id === activeTab) || EMOJI_CATEGORIES[0];
+  }, [activeTab]);
 
   return (
     <div
@@ -153,7 +165,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
             ref={searchInputRef}
             type="text"
             className="emoji-search-input"
-            placeholder="Search emoji..."
+            placeholder="Search all emojis..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -182,17 +194,47 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
         </button>
       </div>
 
-      {/* Main Emoji Scroll Area */}
+      {/* Category Tabs Bar - Top Navigation */}
+      <div className="emoji-category-tabs" role="tablist">
+        {/* Recent Tab */}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'recent' && !searchQuery}
+          className={`emoji-tab-btn ${activeTab === 'recent' && !searchQuery ? 'active' : ''}`}
+          onClick={() => handleTabChange('recent')}
+          title="Recently Used"
+        >
+          {CATEGORY_ICONS.recent}
+        </button>
+
+        {/* Standard Category Tabs */}
+        {EMOJI_CATEGORIES.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === cat.id && !searchQuery}
+            className={`emoji-tab-btn ${activeTab === cat.id && !searchQuery ? 'active' : ''}`}
+            onClick={() => handleTabChange(cat.id)}
+            title={`${cat.name} (${cat.emojis.length})`}
+          >
+            {CATEGORY_ICONS[cat.id] || <Smile size={18} />}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Emoji Area - Displays ONLY the Active Tab's Emojis */}
       <div ref={scrollContainerRef} className="emoji-picker-scroll">
         {searchResults !== null ? (
-          // Search Results View
+          // Search Results Mode
           <div className="emoji-category-section">
             <div className="emoji-category-title">
               SEARCH RESULTS ({searchResults.length})
             </div>
             {searchResults.length === 0 ? (
               <div className="emoji-no-results">
-                No emojis matching "{searchQuery}"
+                No emojis found matching "{searchQuery}"
               </div>
             ) : (
               <div className="emoji-grid">
@@ -211,81 +253,65 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
               </div>
             )}
           </div>
-        ) : (
-          // Categorized Standard View
-          <>
-            {/* Recent Emojis */}
-            {recentEmojis.length > 0 && (
-              <div className="emoji-category-section" data-category-id="recent">
-                <div className="emoji-category-title">RECENTLY USED</div>
-                <div className="emoji-grid">
-                  {recentEmojis.map((emoji, idx) => (
-                    <button
-                      key={`recent-${emoji}-${idx}`}
-                      type="button"
-                      className="emoji-item-btn"
-                      onClick={() => handleEmojiClick(emoji)}
-                      title={`Recent: ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+        ) : activeTab === 'recent' ? (
+          // Separate Tab: Recent Emojis ONLY
+          <div className="emoji-category-section">
+            <div className="emoji-category-title">
+              RECENTLY USED ({recentEmojis.length})
+            </div>
+            {recentEmojis.length === 0 ? (
+              <div className="emoji-no-results">
+                No recently used emojis yet. Click on any emoji to add it here!
+              </div>
+            ) : (
+              <div className="emoji-grid">
+                {recentEmojis.map((emoji, idx) => (
+                  <button
+                    key={`recent-${emoji}-${idx}`}
+                    type="button"
+                    className="emoji-item-btn"
+                    onClick={() => handleEmojiClick(emoji)}
+                    title={`Recent: ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
               </div>
             )}
-
-            {/* All Standard Categories */}
-            {EMOJI_CATEGORIES.map((category) => (
-              <div
-                key={category.id}
-                className="emoji-category-section"
-                data-category-id={category.id}
-              >
-                <div className="emoji-category-title">{category.name.toUpperCase()}</div>
-                <div className="emoji-grid">
-                  {category.emojis.map((item) => (
-                    <button
-                      key={item.emoji}
-                      type="button"
-                      className="emoji-item-btn"
-                      onClick={() => handleEmojiClick(item.emoji)}
-                      title={item.name}
-                      aria-label={item.name}
-                    >
-                      {item.emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </>
+          </div>
+        ) : (
+          // Separate Tab: Active Category Emojis ONLY
+          <div className="emoji-category-section">
+            <div className="emoji-category-title">
+              {currentCategory.name.toUpperCase()} ({currentCategory.emojis.length})
+            </div>
+            <div className="emoji-grid">
+              {currentCategory.emojis.map((item) => (
+                <button
+                  key={item.emoji}
+                  type="button"
+                  className="emoji-item-btn"
+                  onClick={() => handleEmojiClick(item.emoji)}
+                  title={item.name}
+                  aria-label={item.name}
+                >
+                  {item.emoji}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Category Tabs Footer */}
-      <div className="emoji-category-tabs">
-        {recentEmojis.length > 0 && (
-          <button
-            type="button"
-            className={`emoji-tab-btn ${activeCategory === 'recent' && !searchQuery ? 'active' : ''}`}
-            onClick={() => scrollToCategory('recent')}
-            title="Recently Used"
-          >
-            {CATEGORY_ICONS.recent}
-          </button>
-        )}
-
-        {EMOJI_CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            className={`emoji-tab-btn ${activeCategory === cat.id && !searchQuery ? 'active' : ''}`}
-            onClick={() => scrollToCategory(cat.id)}
-            title={cat.name}
-          >
-            {CATEGORY_ICONS[cat.id] || <Smile size={18} />}
-          </button>
-        ))}
+      {/* Bottom Status / Tab Label Indicator */}
+      <div className="emoji-picker-footer">
+        <span className="emoji-footer-label">
+          {searchQuery
+            ? `Search: "${searchQuery}"`
+            : activeTab === 'recent'
+            ? '🕒 Recently Used'
+            : `${currentCategory.name} (${currentCategory.emojis.length})`}
+        </span>
       </div>
     </div>
   );

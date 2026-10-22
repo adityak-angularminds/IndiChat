@@ -2213,9 +2213,9 @@ html, body, #root {
 .emoji-category-tabs {
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  padding: 4px 4px 6px 4px;
-  border-top: 1px solid var(--border-color);
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border-color);
   background-color: var(--bg-chat-header);
   overflow-x: auto;
   scrollbar-width: none;
@@ -2229,7 +2229,7 @@ html, body, #root {
   background: none;
   border: none;
   color: var(--text-muted);
-  padding: 7px 8px;
+  padding: 8px 7px;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
@@ -2247,15 +2247,16 @@ html, body, #root {
 
 .emoji-tab-btn.active {
   color: var(--accent-primary);
+  background-color: rgba(0, 168, 132, 0.1);
 }
 
 .emoji-tab-btn.active::after {
   content: '';
   position: absolute;
   bottom: 0;
-  left: 6px;
-  right: 6px;
-  height: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2.5px;
   background-color: var(--accent-primary);
   border-radius: 2px;
 }
@@ -2266,5 +2267,22 @@ html, body, #root {
   color: var(--text-muted);
   font-size: 0.88rem;
 }
+
+.emoji-picker-footer {
+  padding: 6px 12px;
+  background-color: var(--bg-chat-header);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.emoji-footer-label {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
 
 
