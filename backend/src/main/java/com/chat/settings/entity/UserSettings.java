@@ -29,7 +29,8 @@ public class UserSettings implements Persistable<UUID> {
     private boolean securityNotifications = true;
 
     @Column(name = "status_about")
-    private String statusAbout = "Hey there! I am using WhatsApp.";
+    private String statusAbout = "Hey there! I am using IndiChat.";
+
 
     @Column(name = "privacy_last_seen", nullable = false, length = 30)
     private String privacyLastSeen = "everyone";

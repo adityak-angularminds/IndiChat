@@ -20,6 +20,8 @@ import { ChangePasswordModal } from './ChangePasswordModal';
 import { ChangePhoneModal } from './ChangePhoneModal';
 import { PasskeyModal } from './PasskeyModal';
 import { TwoFactorModal } from './TwoFactorModal';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface AccountViewProps {
   currentUser: User;
@@ -231,10 +233,11 @@ export const AccountView: React.FC<AccountViewProps> = ({
             className="settings-item"
             style={{ color: 'var(--accent-danger)' }}
             onClick={() => {
-              if (confirm('Are you sure you want to log out of WhatsApp?')) {
+              if (confirm(`Are you sure you want to log out of ${APP_NAME}?`)) {
                 onLogout();
               }
             }}
+
           >
             <div className="settings-icon-badge badge-red">
               <LogOut size={20} />
@@ -338,8 +341,9 @@ export const AccountView: React.FC<AccountViewProps> = ({
             </div>
             <form onSubmit={handleSaveUsername} className="modal-body">
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                People can find you on WhatsApp using your unique @username handle without knowing your phone number.
+                People can find you on {APP_NAME} using your unique @username handle without knowing your phone number.
               </p>
+
               <div className="form-group">
                 <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
                   Username

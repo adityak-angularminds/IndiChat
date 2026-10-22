@@ -47,6 +47,8 @@ import {
   fetchOnlineGifs
 } from './gifData';
 import { api } from '../../services/api';
+import { APP_NAME } from '../../config/appConfig';
+
 
 export type MediaPickerMode = 'emojis' | 'gifs' | 'stickers';
 
@@ -831,7 +833,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
                       <Sparkles size={36} />
                     </div>
                     <h4>No Custom Stickers Yet</h4>
-                    <p>Click "Add" to turn any image, photo, or transparent PNG into a WhatsApp sticker!</p>
+                    <p>Click "Add" to turn any image, photo, or transparent PNG into an {APP_NAME} sticker!</p>
                     <button
                       type="button"
                       className="create-sticker-cta-btn"

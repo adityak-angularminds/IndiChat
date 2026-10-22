@@ -1,6 +1,7 @@
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, loadEnv, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import https from 'node:https';
+import path from 'node:path';
 
 const gifSearchCache = new Map<string, { timestamp: number; data: any[] }>();
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -148,21 +149,45 @@ function tenorGifSearchPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tenorGifSearchPlugin()],
-  server: {
-    port: 5174,
-    host: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true
+export default defineConfig(({ mode }) => {
+  const rootDir = path.resolve(__dirname, '../..');
+  // Merge env from root workspace and local apps/web directory
+  const env = { ...loadEnv(mode, rootDir, ''), ...loadEnv(mode, process.cwd(), '') };
+  const appName = env.VITE_APP_NAME || env.APP_NAME || 'IndiChat';
+
+  return {
+    envDir: rootDir,
+    define: {
+      'import.meta.env.VITE_APP_NAME': JSON.stringify(appName),
+    },
+    plugins: [
+      react(),
+      tenorGifSearchPlugin(),
+      {
+        name: 'html-transform-app-name',
+        transformIndexHtml(html: string) {
+          return html
+            .replace(/%VITE_APP_NAME%/g, appName)
+            .replace(/WhatsApp Web/g, `${appName} Web`)
+            .replace(/WhatsApp/g, appName);
+        },
       },
-      '/ws': {
-        target: 'ws://localhost:8080',
-        ws: true,
-        changeOrigin: true
-      }
-    }
-  }
+    ],
+    server: {
+      port: 5174,
+      host: true,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8080',
+          changeOrigin: true,
+        },
+        '/ws': {
+          target: 'ws://localhost:8080',
+          ws: true,
+          changeOrigin: true,
+        },
+      },
+    },
+  };
 });
+

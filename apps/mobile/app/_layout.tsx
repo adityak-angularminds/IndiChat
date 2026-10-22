@@ -28,7 +28,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="chats" options={{ title: 'WhatsApp', headerBackVisible: false }} />
+        <Stack.Screen name="chats" options={{ title: 'IndiChat', headerBackVisible: false }} />
+
         <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
       </Stack>
     </>

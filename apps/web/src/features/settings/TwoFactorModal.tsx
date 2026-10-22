@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, ShieldCheck, ShieldAlert, KeyRound, Check, AlertCircle } from 'lucide-react';
 import { settingsService } from '../../services/settings';
 import { api } from '../../services/api';
+import { APP_NAME } from '../../config/appConfig';
+
 
 interface TwoFactorModalProps {
   isOpen: boolean;
@@ -149,8 +151,9 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({
                   Two-step verification is ON
                 </h4>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.5' }}>
-                  You will need to enter your PIN when registering your phone number with WhatsApp again.
+                  You will need to enter your PIN when registering your phone number with {APP_NAME} again.
                 </p>
+
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '10px' }}>

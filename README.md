@@ -1,6 +1,7 @@
-# WhatsApp-like Messaging Application — Monorepo
+# IndiChat — Real-Time Messaging Application (Monorepo)
 
 Production-grade real-time messaging platform across Web, Mobile, and Spring Boot backend.
+
 
 ## Project Structure
 ```

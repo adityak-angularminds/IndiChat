@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "WhatsApp",
-    "slug": "whatsapp-mobile",
+    "name": "IndiChat",
+    "slug": "indichat-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -34,7 +34,7 @@
         }
       ]
     ],
-    "scheme": "whatsapp",
+    "scheme": "indichat",
     "newArchEnabled": true
   }
 }

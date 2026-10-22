@@ -1,3 +1,5 @@
+import { APP_NAME } from '../config/appConfig';
+
 export interface LanguageInfo {
   code: string;
   name: string;
@@ -39,7 +41,7 @@ export const translations: Record<string, Record<string, string>> = {
     back: 'Back',
 
     // Linked devices
-    linkedDevicesDesc: 'Use WhatsApp on Web, Desktop, and other devices without keeping your phone online.',
+    linkedDevicesDesc: `Use ${APP_NAME} on Web, Desktop, and other devices without keeping your phone online.`,
     linkADevice: 'Link a device',
     deviceStatus: 'Device status',
     tapToLogout: 'Tap a device to view details or log out.',
@@ -47,8 +49,8 @@ export const translations: Record<string, Record<string, string>> = {
     activeNow: 'Active now',
     lastActive: 'Last active',
     logOutFromAll: 'Log out from all devices',
-    scanQrTitle: 'Use WhatsApp on your devices',
-    scanQrStep1: '1. Open WhatsApp on your phone',
+    scanQrTitle: `Use ${APP_NAME} on your devices`,
+    scanQrStep1: `1. Open ${APP_NAME} on your phone`,
     scanQrStep2: '2. Tap Menu or Settings and select Linked Devices',
     scanQrStep3: '3. Tap Link a Device and point your phone to this screen',
 
@@ -207,7 +209,7 @@ export const translations: Record<string, Record<string, string>> = {
     done: 'Listo',
     close: 'Cerrar',
     back: 'Atrás',
-    linkedDevicesDesc: 'Usa WhatsApp en la web y escritorio sin mantener tu teléfono conectado.',
+    linkedDevicesDesc: `Usa ${APP_NAME} en la web y escritorio sin mantener tu teléfono conectado.`,
     linkADevice: 'Vincular un dispositivo',
     deviceStatus: 'Estado de los dispositivos',
     tapToLogout: 'Toca un dispositivo para ver detalles o cerrar sesión.',
@@ -215,8 +217,8 @@ export const translations: Record<string, Record<string, string>> = {
     activeNow: 'Activo ahora',
     lastActive: 'Última vez',
     logOutFromAll: 'Cerrar sesión en todos los dispositivos',
-    scanQrTitle: 'Usa WhatsApp en tus dispositivos',
-    scanQrStep1: '1. Abre WhatsApp en tu teléfono',
+    scanQrTitle: `Usa ${APP_NAME} en tus dispositivos`,
+    scanQrStep1: `1. Abre ${APP_NAME} en tu teléfono`,
     scanQrStep2: '2. Toca Menú o Configuración y selecciona Dispositivos vinculados',
     scanQrStep3: '3. Toca Vincular un dispositivo y apunta tu teléfono a esta pantalla',
     loginAndSecurity: 'Inicio de sesión y seguridad',
@@ -288,7 +290,7 @@ export const translations: Record<string, Record<string, string>> = {
     done: 'Terminé',
     close: 'Fermer',
     back: 'Retour',
-    linkedDevicesDesc: 'Utilisez WhatsApp sur le Web et ordinateur sans garder votre téléphone connecté.',
+    linkedDevicesDesc: `Utilisez ${APP_NAME} sur le Web et ordinateur sans garder votre téléphone connecté.`,
     linkADevice: 'Connecter un appareil',
     deviceStatus: 'État des appareils',
     tapToLogout: 'Appuyez sur un appareil pour vous déconnecter.',
@@ -296,8 +298,8 @@ export const translations: Record<string, Record<string, string>> = {
     activeNow: 'Actif maintenant',
     lastActive: 'Dernière activité',
     logOutFromAll: 'Déconnecter tous les appareils',
-    scanQrTitle: 'Utiliser WhatsApp sur vos appareils',
-    scanQrStep1: '1. Ouvrez WhatsApp sur votre téléphone',
+    scanQrTitle: `Utiliser ${APP_NAME} sur vos appareils`,
+    scanQrStep1: `1. Ouvrez ${APP_NAME} sur votre téléphone`,
     scanQrStep2: '2. Appuyez sur Menu ou Paramètres et sélectionnez Appareils connectés',
     scanQrStep3: "3. Pointez votre téléphone vers cet écran pour scanner le code",
     loginAndSecurity: 'Connexion et sécurité',
@@ -369,7 +371,7 @@ export const translations: Record<string, Record<string, string>> = {
     done: 'Fertig',
     close: 'Schließen',
     back: 'Zurück',
-    linkedDevicesDesc: 'WhatsApp auf PC und Web ohne aktives Telefon nutzen.',
+    linkedDevicesDesc: `${APP_NAME} auf PC und Web ohne aktives Telefon nutzen.`,
     linkADevice: 'Gerät verknüpfen',
     deviceStatus: 'Gerätestatus',
     tapToLogout: 'Tippe auf ein Gerät, um dich abzumelden.',
@@ -377,8 +379,8 @@ export const translations: Record<string, Record<string, string>> = {
     activeNow: 'Jetzt aktiv',
     lastActive: 'Zuletzt aktiv',
     logOutFromAll: 'Von allen Geräten abmelden',
-    scanQrTitle: 'WhatsApp auf deinen Geräten verwenden',
-    scanQrStep1: '1. Öffne WhatsApp auf deinem Telefon',
+    scanQrTitle: `${APP_NAME} auf deinen Geräten verwenden`,
+    scanQrStep1: `1. Öffne ${APP_NAME} auf deinem Telefon`,
     scanQrStep2: '2. Gehe zu Menü/Einstellungen > Verknüpfte Geräte',
     scanQrStep3: '3. Richte dein Telefon auf diesen Bildschirm',
     loginAndSecurity: 'Anmeldung und Sicherheit',
