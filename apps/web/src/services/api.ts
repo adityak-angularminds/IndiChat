@@ -61,6 +61,15 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     } catch {
       // fallback
     }
+
+    if (res.status === 401 && !endpoint.startsWith('/auth/login') && !endpoint.startsWith('/auth/register')) {
+      window.dispatchEvent(
+        new CustomEvent('chat:session_expired', {
+          detail: { message: errorMsg || 'Your session has ended or this device was logged out.' }
+        })
+      );
+    }
+
     throw new ApiError(res.status, errorMsg);
   }
 
@@ -73,6 +82,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // Auth
+  logout: () => request<{ message: string }>('/auth/logout', { method: 'POST' }),
+
   register: (data: RegisterRequest) => {
     const details = getDeviceDetails();
     return request<AuthResponse>('/auth/register', {

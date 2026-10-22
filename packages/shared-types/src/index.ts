@@ -152,6 +152,7 @@ export type WebSocketServerAction =
   | 'typing.updated'
   | 'presence.updated'
   | 'call.signal'
+  | 'DEVICE_REMOVED'
   | 'error';
 
 export interface SendMessagePayload {

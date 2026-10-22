@@ -13,14 +13,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.chat.websocket.ChatWebSocketHandler;
+
 @RestController
 @RequestMapping("/api/v1/devices")
 public class LinkedDeviceController {
 
     private final UserLinkedDeviceService deviceService;
+    private final ChatWebSocketHandler chatWebSocketHandler;
 
-    public LinkedDeviceController(UserLinkedDeviceService deviceService) {
+    public LinkedDeviceController(
+        UserLinkedDeviceService deviceService,
+        ChatWebSocketHandler chatWebSocketHandler
+    ) {
         this.deviceService = deviceService;
+        this.chatWebSocketHandler = chatWebSocketHandler;
     }
 
     @GetMapping
@@ -64,6 +71,7 @@ public class LinkedDeviceController {
         @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         deviceService.removeDevice(userDetails.getId(), deviceId);
+        chatWebSocketHandler.disconnectDevice(userDetails.getId(), deviceId, "Device session removed by user");
         return ResponseEntity.ok(Map.of("message", "Device removed successfully"));
     }
 
@@ -79,6 +87,7 @@ public class LinkedDeviceController {
             } catch (Exception ignored) {}
         }
         deviceService.removeAllOtherDevices(userDetails.getId(), currentDeviceId);
+        chatWebSocketHandler.disconnectOtherDevices(userDetails.getId(), currentDeviceId, "Logged out from all other devices");
         return ResponseEntity.ok(Map.of("message", "Logged out from all other devices"));
     }
 }

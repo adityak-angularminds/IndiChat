@@ -119,7 +119,7 @@ export interface MessageHistoryResponse {
     nextCursor?: string;
 }
 export type WebSocketClientAction = 'message.send' | 'message.delivered' | 'message.read' | 'typing.start' | 'typing.stop' | 'presence.subscribe' | 'call.signal';
-export type WebSocketServerAction = 'message.created' | 'message.receipt.updated' | 'typing.updated' | 'presence.updated' | 'call.signal' | 'error';
+export type WebSocketServerAction = 'message.created' | 'message.receipt.updated' | 'typing.updated' | 'presence.updated' | 'call.signal' | 'DEVICE_REMOVED' | 'error';
 export interface SendMessagePayload {
     conversationId: UUID;
     clientMessageId: UUID;

@@ -12,6 +12,7 @@ import { CallModal } from './features/calls/CallModal';
 import { NotificationModal } from './features/notifications/NotificationModal';
 import { NotificationToastContainer } from './features/notifications/NotificationToastContainer';
 import { generateUUID } from './utils/uuid';
+import { resetDeviceId } from './utils/device';
 import { settingsService } from './services/settings';
 
 export const App: React.FC = () => {
@@ -297,17 +298,55 @@ export const App: React.FC = () => {
     settingsService.syncWithBackend();
   };
 
-  const handleLogout = () => {
-    notificationService.unregister();
+  const handleLogout = useCallback(async (notifyBackend = true, alertReason?: string) => {
+    if (notifyBackend) {
+      try {
+        await api.logout();
+      } catch (e) {
+        console.warn('Backend logout warning (proceeding with local cleanup):', e);
+      }
+    }
+
+    try {
+      notificationService.unregister();
+    } catch (e) {}
+
     wsClient.disconnect();
     localStorage.removeItem('chat_access_token');
     localStorage.removeItem('chat_refresh_token');
+    resetDeviceId();
     settingsService.resetForLogout();
     setCurrentUser(null);
     setConversations([]);
     setActiveConversationId(null);
     setMessages([]);
-  };
+
+    if (alertReason) {
+      alert(alertReason);
+    }
+  }, []);
+
+  // Listen for remote device removal / session termination
+  useEffect(() => {
+    const unsubDeviceRemoved = wsClient.onDeviceRemoved((reason) => {
+      console.warn('[Session] Device removed remotely by user:', reason);
+      handleLogout(false, reason || 'This device has been removed from linked devices and logged out.');
+    });
+
+    const handleSessionExpired = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      const reason = customEvent.detail?.message || 'Your device session has expired or was removed.';
+      console.warn('[Session] Session expired event:', reason);
+      handleLogout(false, reason);
+    };
+
+    window.addEventListener('chat:session_expired', handleSessionExpired);
+
+    return () => {
+      unsubDeviceRemoved();
+      window.removeEventListener('chat:session_expired', handleSessionExpired);
+    };
+  }, [handleLogout]);
 
   const handleSendMessage = async (content: string, messageType: MessageType = 'TEXT') => {
     if (!currentUser || !activeConversationId) return;

@@ -313,6 +313,7 @@ class SettingsService {
     if (token) {
       try {
         await api.removeLinkedDevice(deviceId);
+        await this.syncWithBackend();
       } catch (err) {
         console.warn('Failed to delete device on backend:', err);
       }
@@ -327,6 +328,7 @@ class SettingsService {
     if (token) {
       try {
         await api.removeOtherLinkedDevices();
+        await this.syncWithBackend();
       } catch (err) {
         console.warn('Failed to remove other devices on backend:', err);
       }

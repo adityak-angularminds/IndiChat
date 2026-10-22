@@ -150,6 +150,47 @@ public class AuthService {
         return new AuthTokens(newAccessToken, newRefreshToken, "Bearer", tokenProvider.getExpirationMs());
     }
 
+    @Transactional
+    public UUID logout(UUID userId, String deviceIdStr, HttpServletRequest request) {
+        if (userId == null && request != null) {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
+                try {
+                    if (tokenProvider.validateToken(token)) {
+                        userId = tokenProvider.getUserIdFromToken(token);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        UUID deviceUuid = null;
+        if (deviceIdStr != null && !deviceIdStr.isBlank()) {
+            try {
+                deviceUuid = UUID.fromString(deviceIdStr.trim());
+            } catch (Exception ignored) {}
+        }
+        if (deviceUuid == null && request != null) {
+            String headerDevId = request.getHeader("X-Device-Id");
+            if (headerDevId != null && !headerDevId.isBlank()) {
+                try {
+                    deviceUuid = UUID.fromString(headerDevId.trim());
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (userId != null) {
+            if (deviceUuid != null) {
+                linkedDeviceService.removeDevice(userId, deviceUuid);
+                log.info("Removed device {} for user {} on logout", deviceUuid, userId);
+            }
+            refreshTokenRepository.deleteByUserId(userId);
+            log.info("Revoked refresh tokens for user {} on logout", userId);
+        }
+
+        return userId;
+    }
+
     private void recordDeviceLogin(
         User user,
         String deviceIdStr,

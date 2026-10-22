@@ -40,10 +40,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final PresenceService presenceService;
     private final PushNotificationService pushNotificationService;
     private final ObjectMapper objectMapper;
+    private final com.chat.device.repository.UserLinkedDeviceRepository deviceRepository;
 
     // Active session mappings
     private final Map<UUID, Set<WebSocketSession>> userSessions = new ConcurrentHashMap<>();
     private final Map<String, UUID> sessionToUser = new ConcurrentHashMap<>();
+    private final Map<String, UUID> sessionToDevice = new ConcurrentHashMap<>();
 
     public ChatWebSocketHandler(
         JwtTokenProvider tokenProvider,
@@ -53,7 +55,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         UserRepository userRepository,
         PresenceService presenceService,
         PushNotificationService pushNotificationService,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        com.chat.device.repository.UserLinkedDeviceRepository deviceRepository
     ) {
         this.tokenProvider = tokenProvider;
         this.messageService = messageService;
@@ -63,22 +66,42 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         this.presenceService = presenceService;
         this.pushNotificationService = pushNotificationService;
         this.objectMapper = objectMapper;
+        this.deviceRepository = deviceRepository;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         UUID userId = extractUserId(session);
+        UUID deviceId = extractDeviceId(session);
         if (userId == null) {
             log.warn("Unauthorized WebSocket handshake attempt");
             session.close(CloseStatus.POLICY_VIOLATION);
             return;
         }
 
+        if (deviceId != null && !deviceRepository.existsByIdAndUserId(deviceId, userId)) {
+            log.warn("WebSocket rejected: device {} is not linked to user {}", deviceId, userId);
+            sendToSession(session, Map.of(
+                "type", "DEVICE_REMOVED",
+                "payload", Map.of(
+                    "deviceId", deviceId.toString(),
+                    "reason", "This device has been removed from linked devices."
+                )
+            ));
+            try {
+                session.close(new CloseStatus(4001, "Device session revoked"));
+            } catch (Exception ignored) {}
+            return;
+        }
+
         sessionToUser.put(session.getId(), userId);
+        if (deviceId != null) {
+            sessionToDevice.put(session.getId(), deviceId);
+        }
         userSessions.computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet()).add(session);
         presenceService.setUserOnline(userId);
 
-        log.info("WebSocket connected for user: {}", userId);
+        log.info("WebSocket connected for user: {} (device: {})", userId, deviceId);
 
         // Broadcast presence
         broadcastPresence(userId, true, Instant.now());
@@ -86,6 +109,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        sessionToDevice.remove(session.getId());
         UUID userId = sessionToUser.remove(session.getId());
         if (userId != null) {
             Set<WebSocketSession> sessions = userSessions.get(userId);
@@ -317,5 +341,77 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
 
         return null;
+    }
+
+    private UUID extractDeviceId(WebSocketSession session) {
+        URI uri = session.getUri();
+        if (uri == null) return null;
+
+        String query = uri.getQuery();
+        if (query != null && query.contains("deviceId=")) {
+            for (String param : query.split("&")) {
+                if (param.startsWith("deviceId=")) {
+                    try {
+                        return UUID.fromString(param.substring(9).trim());
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        List<String> deviceHeaders = session.getHandshakeHeaders().get("X-Device-Id");
+        if (deviceHeaders != null && !deviceHeaders.isEmpty()) {
+            try {
+                return UUID.fromString(deviceHeaders.get(0).trim());
+            } catch (Exception ignored) {}
+        }
+
+        return null;
+    }
+
+    public void disconnectDevice(UUID userId, UUID deviceId, String reason) {
+        if (userId == null || deviceId == null) return;
+        Set<WebSocketSession> sessions = userSessions.get(userId);
+        if (sessions == null) return;
+
+        Map<String, Object> message = Map.of(
+            "type", "DEVICE_REMOVED",
+            "payload", Map.of(
+                "deviceId", deviceId.toString(),
+                "reason", reason != null ? reason : "This device session has been logged out."
+            )
+        );
+
+        for (WebSocketSession s : sessions) {
+            UUID dev = sessionToDevice.get(s.getId());
+            if (dev != null && dev.equals(deviceId)) {
+                sendToSession(s, message);
+                try {
+                    s.close(new CloseStatus(4001, "Device session revoked"));
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    public void disconnectOtherDevices(UUID userId, UUID currentDeviceId, String reason) {
+        if (userId == null) return;
+        Set<WebSocketSession> sessions = userSessions.get(userId);
+        if (sessions == null) return;
+
+        Map<String, Object> message = Map.of(
+            "type", "DEVICE_REMOVED",
+            "payload", Map.of(
+                "reason", reason != null ? reason : "Logged out from all other devices."
+            )
+        );
+
+        for (WebSocketSession s : sessions) {
+            UUID dev = sessionToDevice.get(s.getId());
+            if (currentDeviceId == null || dev == null || !dev.equals(currentDeviceId)) {
+                sendToSession(s, message);
+                try {
+                    s.close(new CloseStatus(4001, "Logged out from all other devices"));
+                } catch (Exception ignored) {}
+            }
+        }
     }
 }

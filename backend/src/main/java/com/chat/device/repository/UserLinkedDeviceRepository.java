@@ -17,6 +17,8 @@ public interface UserLinkedDeviceRepository extends JpaRepository<UserLinkedDevi
 
     Optional<UserLinkedDevice> findByIdAndUserId(UUID id, UUID userId);
 
+    boolean existsByIdAndUserId(UUID id, UUID userId);
+
     @Modifying
     @Query("DELETE FROM UserLinkedDevice d WHERE d.user.id = :userId AND d.id <> :currentDeviceId")
     void deleteByUserIdAndIdNot(@Param("userId") UUID userId, @Param("currentDeviceId") UUID currentDeviceId);

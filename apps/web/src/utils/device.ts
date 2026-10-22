@@ -19,6 +19,15 @@ export function getDeviceId(): string {
   return id;
 }
 
+export function resetDeviceId(): string {
+  if (typeof window !== 'undefined') {
+    const newId = generateUUID();
+    localStorage.setItem(DEVICE_ID_KEY, newId);
+    return newId;
+  }
+  return 'unknown-device';
+}
+
 export function getDeviceDetails(): DeviceInfo {
   const deviceId = getDeviceId();
   if (typeof navigator === 'undefined') {
