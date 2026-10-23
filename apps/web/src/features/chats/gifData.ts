@@ -72,168 +72,16 @@ export function getGiphyFallbacks(url: string): string[] {
   return fallbacks;
 }
 
-export const CURATED_GIFS: GifItem[] = [
-  // Trending
-  {
-    id: 'gif-gatsby-cheers',
-    title: 'Gatsby Cheers',
-    category: 'trending',
-    url: 'https://media.giphy.com/media/BPJmHPINuydyU/giphy.gif',
-    tags: ['gatsby', 'cheers', 'champagne', 'leonardo', 'celebration', 'toast', 'classy', 'congrats', 'party']
-  },
-  {
-    id: 'gif-this-is-fine',
-    title: 'This Is Fine Dog',
-    category: 'trending',
-    url: 'https://media.giphy.com/media/NTur7XlVDUdqM/giphy.gif',
-    tags: ['this is fine', 'dog', 'fire', 'okay', 'chaos', 'calm', 'meme', 'help', 'fine']
-  },
-  {
-    id: 'gif-elmo-fire',
-    title: 'Elmo Hell Fire',
-    category: 'trending',
-    url: 'https://media.giphy.com/media/yr7n0u3WoS996/giphy.gif',
-    tags: ['elmo', 'fire', 'chaos', 'flames', 'rise', 'epic', 'trending', 'wild', 'burn']
-  },
-  {
-    id: 'gif-success-kid',
-    title: 'Success Kid Yes',
-    category: 'trending',
-    url: 'https://media.giphy.com/media/nXxOjZrbnbRxS/giphy.gif',
-    tags: ['success', 'kid', 'beach', 'fist', 'yes', 'win', 'victory', 'nailed it', 'done']
-  },
-
-  // Reactions
-  {
-    id: 'gif-minion-laugh',
-    title: 'Minion Laughing Hard',
-    category: 'reactions',
-    url: 'https://media.giphy.com/media/B0vFTrb0ZGDf2/giphy.gif',
-    tags: ['minion', 'laugh', 'lol', 'haha', 'rofl', 'funny', 'joke', 'hysterical', 'lmao']
-  },
-  {
-    id: 'gif-robert-nod',
-    title: 'Nodding In Agreement',
-    category: 'reactions',
-    url: 'https://media.giphy.com/media/gOkawaguYpl5C/giphy.gif',
-    tags: ['nod', 'yes', 'agree', 'robert redford', 'mountain', 'smile', 'respect', 'approved', 'ok', 'sure']
-  },
-  {
-    id: 'gif-picard-facepalm',
-    title: 'Captain Picard Facepalm',
-    category: 'reactions',
-    url: 'https://media.giphy.com/media/XsUmnZXagUBUs/giphy.gif',
-    tags: ['facepalm', 'picard', 'star trek', 'smh', 'disappointed', 'fail', 'dumb', 'seriously']
-  },
-  {
-    id: 'gif-forrest-wave',
-    title: 'Forrest Gump Waving',
-    category: 'reactions',
-    url: 'https://media.giphy.com/media/keTwQbbQwlNM20Js3W/giphy.gif',
-    tags: ['wave', 'hello', 'hi', 'bye', 'forrest gump', 'boat', 'friendly', 'hey', 'welcome']
-  },
-  {
-    id: 'gif-mic-drop',
-    title: 'Obama Mic Drop',
-    category: 'reactions',
-    url: 'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
-    tags: ['mic drop', 'obama', 'boom', 'done', 'winner', 'period', 'statement', 'flex']
-  },
-
-  // Applause / Clapping
-  {
-    id: 'gif-leo-clap',
-    title: 'Leonardo Clapping Applause',
-    category: 'applause',
-    url: 'https://media.giphy.com/media/g9582DNuQppxC/giphy.gif',
-    tags: ['applause', 'clap', 'clapping', 'leonardo', 'wolf of wall street', 'bravo', 'congrats', 'cheers']
-  },
-  {
-    id: 'gif-standing-ovation',
-    title: 'Standing Ovation Bravo',
-    category: 'applause',
-    url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
-    tags: ['ovation', 'applause', 'cheer', 'respect', 'well done', 'bravo', 'clapping', 'proud']
-  },
-
-  // Dancing
-  {
-    id: 'gif-carlton-dance',
-    title: 'Carlton Dance Fresh Prince',
-    category: 'dancing',
-    url: 'https://media.giphy.com/media/4bjIKBOWUnVPICC8JCE/giphy.gif',
-    tags: ['carlton', 'dance', 'fresh prince', 'happy', 'groove', 'moves', 'celebrate', 'dancing']
-  },
-  {
-    id: 'gif-happy-dog-dance',
-    title: 'Happy Dog Dancing',
-    category: 'dancing',
-    url: 'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',
-    tags: ['dog', 'dance', 'cute', 'excited', 'wiggle', 'happy', 'tail', 'puppy', 'pet']
-  },
-
-  // Thumbs Up
-  {
-    id: 'gif-thumbs-up-classic',
-    title: 'Cool Thumbs Up',
-    category: 'thumbsup',
-    url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
-    tags: ['thumbs up', 'like', 'agree', 'cool', 'good', 'affirmative', 'ok', 'nice', 'great', 'yes']
-  },
-
-  // Love & Heart
-  {
-    id: 'gif-heart-hands',
-    title: 'Heart Hands Love',
-    category: 'love',
-    url: 'https://media.giphy.com/media/26BRv0ThflsDTjCTe/giphy.gif',
-    tags: ['heart', 'love', 'sweet', 'hands', 'crush', 'care', 'romance', 'thank you', 'kiss']
-  },
-
-  // Mind Blown
-  {
-    id: 'gif-mind-blown',
-    title: 'Mind Blown Galaxy',
-    category: 'mindblown',
-    url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif',
-    tags: ['mind blown', 'brain', 'space', 'galaxy', 'whoa', 'insane', 'shocking', 'unbelievable', 'omg']
-  },
-
-  // Sad / Crying
-  {
-    id: 'gif-crying-waterfall',
-    title: 'Crying In Sadness',
-    category: 'sad',
-    url: 'https://media.giphy.com/media/L95W4wvNFOKR2/giphy.gif',
-    tags: ['sad', 'crying', 'tears', 'upset', 'heartbroken', 'sob', 'pain', 'sorry']
-  },
-
-  // Party
-  {
-    id: 'gif-party-confetti',
-    title: 'Confetti Party Celebrate',
-    category: 'party',
-    url: 'https://media.giphy.com/media/BPJmHPINuydyU/giphy.gif',
-    tags: ['party', 'celebrate', 'congrats', 'cheers', 'birthday', 'champagne', 'yay', 'friday']
-  },
-
-  // Coffee / Chill
-  {
-    id: 'gif-chill-vibe',
-    title: 'Chill Coffee Morning',
-    category: 'coffee',
-    url: 'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
-    tags: ['chill', 'coffee', 'loading', 'relax', 'zen', 'morning', 'vibe', 'tea']
-  }
-];
+// Static curated GIFs removed - all GIFs are fetched dynamically from the web!
+export const CURATED_GIFS: GifItem[] = [];
 
 // Storage Helpers
 export function getRecentGifs(): GifItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_RECENT_GIFS);
-    return raw ? JSON.parse(raw) : [CURATED_GIFS[0], CURATED_GIFS[1], CURATED_GIFS[4]];
+    return raw ? JSON.parse(raw) : [];
   } catch {
-    return [CURATED_GIFS[0], CURATED_GIFS[1], CURATED_GIFS[4]];
+    return [];
   }
 }
 
@@ -247,39 +95,194 @@ export function saveRecentGif(gif: GifItem): void {
   }
 }
 
-/**
- * Fast search over curated GIFs by keyword or category
- */
-export function searchGifs(query: string, category?: string): GifItem[] {
-  let list = CURATED_GIFS;
+export function searchGifsLocally(_query: string): GifItem[] {
+  return [];
+}
 
-  if (category && category !== 'all' && category !== 'trending') {
-    list = list.filter((g) => g.category === category);
-  }
+export function getGifsByCategory(_category: string): GifItem[] {
+  return [];
+}
 
-  if (!query || !query.trim()) {
-    return list;
-  }
-
-  const q = query.trim().toLowerCase();
-  return list.filter((g) => {
-    if (g.title.toLowerCase().includes(q)) return true;
-    if (g.category.toLowerCase().includes(q)) return true;
-    return g.tags.some((tag) => tag.toLowerCase().includes(q));
-  });
+export function searchGifs(_query: string, _category?: string): GifItem[] {
+  return [];
 }
 
 const clientGifCache = new Map<string, { timestamp: number; data: GifItem[] }>();
-const CLIENT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CLIENT_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+function cleanHtmlEntities(str: string): string {
+  return str
+    .replace(/&#039;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+}
 
 /**
- * Searches online GIFs powered by Google Tenor via our live search endpoint.
- * Returns animated GIFs matching the typed query word or category.
- * If network request fails or device is offline, gracefully falls back to local curated items.
+ * Directly queries Google Tenor web endpoint for dynamic animated GIFs matching query or trending.
+ */
+async function fetchTenorDirectly(searchKey: string): Promise<GifItem[]> {
+  const isTrending = !searchKey || searchKey.toLowerCase() === 'trending' || searchKey.toLowerCase() === 'all';
+  const qSlug = isTrending ? '' : encodeURIComponent(searchKey.trim().toLowerCase().replace(/\s+/g, '-'));
+  const targetUrl = qSlug ? `https://tenor.com/search/${qSlug}-gifs` : 'https://tenor.com';
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    const res = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const html = await res.text();
+    const results: GifItem[] = [];
+    const seen = new Set<string>();
+
+    const imgRegex =
+      /<img\b[^>]*\bsrc=["'](https:\/\/media\.tenor\.com\/[a-zA-Z0-9_-]+\/([a-zA-Z0-9_-]+)\.gif)["'][^>]*\balt=["']([^"']*)["']/gi;
+    let m: RegExpExecArray | null;
+
+    while ((m = imgRegex.exec(html)) !== null) {
+      const fullUrl = m[1];
+      const rawName = m[2] || 'gif';
+      const rawAlt = m[3] ? cleanHtmlEntities(m[3]) : '';
+
+      if (!seen.has(fullUrl)) {
+        seen.add(fullUrl);
+        const fallbackTitle = rawName
+          .replace(/[-_]+/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        const title = rawAlt.length > 3 ? rawAlt : fallbackTitle;
+
+        results.push({
+          id: `tenor-${Math.random().toString(36).substring(2, 9)}`,
+          title,
+          category: 'trending',
+          url: fullUrl,
+          tags: [searchKey, ...rawName.split(/[-_]+/)],
+        });
+      }
+    }
+
+    if (results.length === 0) {
+      const rawRegex =
+        /https:\/\/media\.tenor\.com\/[a-zA-Z0-9_-]+\/([a-zA-Z0-9_-]+)\.gif/g;
+      let rawMatch: RegExpExecArray | null;
+
+      while ((rawMatch = rawRegex.exec(html)) !== null) {
+        const fullUrl = rawMatch[0];
+        const rawName = rawMatch[1] || 'gif';
+        if (!seen.has(fullUrl)) {
+          seen.add(fullUrl);
+          const title = rawName
+            .replace(/[-_]+/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          results.push({
+            id: `tenor-${Math.random().toString(36).substring(2, 9)}`,
+            title,
+            category: 'trending',
+            url: fullUrl,
+            tags: [searchKey, ...rawName.split(/[-_]+/)],
+          });
+        }
+      }
+    }
+
+    return results;
+  } catch {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
+
+const CATEGORY_SEARCH_MAP: Record<string, string> = {
+  trending: 'trending',
+  reactions: 'funny reaction',
+  applause: 'applause clapping',
+  dancing: 'dance dancing',
+  thumbsup: 'thumbs up',
+  love: 'love heart',
+  sad: 'sad crying',
+  mindblown: 'mind blown',
+  party: 'party celebrate',
+  coffee: 'chill vibe coffee',
+};
+
+/**
+ * Directly queries Giphy (https://giphy.com/) for live animated GIFs.
+ */
+async function fetchGiphyDirectly(searchKey: string): Promise<GifItem[]> {
+  const isTrending = !searchKey || searchKey.toLowerCase() === 'trending' || searchKey.toLowerCase() === 'all';
+  const qSlug = isTrending ? '' : encodeURIComponent(searchKey.trim().toLowerCase().replace(/\s+/g, '-'));
+  const targetUrl = qSlug ? `https://giphy.com/search/${qSlug}` : 'https://giphy.com/trending-gifs';
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+  try {
+    const res = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,*/*',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const html = await res.text();
+    const results: GifItem[] = [];
+    const seen = new Set<string>();
+
+    const linkRegex = /https:\/\/giphy\.com\/gifs\/(?:[a-zA-Z0-9_-]+-)?([a-zA-Z0-9]{10,30})\b/g;
+    let m: RegExpExecArray | null;
+
+    while ((m = linkRegex.exec(html)) !== null) {
+      const fullLink = m[0];
+      const gifId = m[1];
+      if (!seen.has(gifId)) {
+        seen.add(gifId);
+        const slugPart = fullLink.replace('https://giphy.com/gifs/', '').replace('-' + gifId, '');
+        const title = slugPart
+          ? cleanHtmlEntities(slugPart.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()))
+          : (searchKey || 'GIF');
+
+        results.push({
+          id: `giphy-${gifId}`,
+          title,
+          category: 'trending',
+          url: `https://media.giphy.com/media/${gifId}/giphy.gif`,
+          previewUrl: `https://media.giphy.com/media/${gifId}/200.gif`,
+          tags: [searchKey, ...slugPart.split(/[-_]+/)],
+        });
+      }
+    }
+
+    return results;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    return [];
+  }
+}
+
+/**
+ * Searches online GIFs powered dynamically by Google Tenor AND Giphy (https://giphy.com/).
+ * Queries both platforms in parallel and combines results.
+ * Completely dynamic - no static curated lists.
  */
 export async function fetchOnlineGifs(query: string, category?: string): Promise<GifItem[]> {
   const cleanQuery = (query || '').trim();
-  const searchKey = cleanQuery || (category && category !== 'recents' && category !== 'all' ? category : 'trending');
+  const searchKey = cleanQuery
+    ? cleanQuery
+    : (category && CATEGORY_SEARCH_MAP[category]) || (category && category !== 'recents' && category !== 'all' ? category : 'trending');
   const cacheKey = searchKey.toLowerCase();
 
   const cached = clientGifCache.get(cacheKey);
@@ -287,6 +290,7 @@ export async function fetchOnlineGifs(query: string, category?: string): Promise
     return cached.data;
   }
 
+  // 1. Try local dev proxy endpoint if available
   try {
     const res = await fetch(`/api/v1/gifs/search?q=${encodeURIComponent(searchKey)}`);
     if (res.ok) {
@@ -296,11 +300,35 @@ export async function fetchOnlineGifs(query: string, category?: string): Promise
         return data;
       }
     }
-  } catch (err) {
-    console.warn('Google Tenor GIF search error, falling back to local list:', err);
+  } catch {
+    // Continue to direct search
   }
 
-  // Graceful fallback to curated GIFs if network fails or yields no results
-  return searchGifs(cleanQuery, category);
+  // 2. Direct parallel search across Tenor and Giphy
+  try {
+    const [tenorRes, giphyRes] = await Promise.allSettled([
+      fetchTenorDirectly(searchKey),
+      fetchGiphyDirectly(searchKey),
+    ]);
+
+    const tenorList = tenorRes.status === 'fulfilled' ? tenorRes.value : [];
+    const giphyList = giphyRes.status === 'fulfilled' ? giphyRes.value : [];
+
+    const combined: GifItem[] = [];
+    const maxLen = Math.max(tenorList.length, giphyList.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < giphyList.length) combined.push(giphyList[i]);
+      if (i < tenorList.length) combined.push(tenorList[i]);
+    }
+
+    if (combined.length > 0) {
+      clientGifCache.set(cacheKey, { timestamp: Date.now(), data: combined });
+      return combined;
+    }
+  } catch (err) {
+    console.warn('Direct Tenor/Giphy GIF search error:', err);
+  }
+
+  return [];
 }
 
