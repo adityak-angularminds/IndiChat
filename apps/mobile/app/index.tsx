@@ -375,7 +375,7 @@ export default function LoginScreen() {
               onChangeText={setServerUrl}
               autoCapitalize="none"
               autoCorrect={false}
-              placeholder="http://192.168.1.3:8080"
+              placeholder="http://192.168.0.70:8080"
               placeholderTextColor="#8696a0"
             />
 
