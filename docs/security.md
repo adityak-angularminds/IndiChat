@@ -1,14 +1,72 @@
 # Security Architecture & Policies
 
-## Authentication & Authorization
-- **Password Storage**: Passwords are saved using BCrypt cryptographic hash with work factor 12.
-- **Access Tokens**: Short-lived (15-60 min) signed JSON Web Tokens (HMAC-SHA256).
-- **Refresh Tokens**: Revocable tokens stored securely in PostgreSQL with hashed validation.
-- **Resource Ownership Authorization**: Every REST endpoint and WebSocket frame validates that the requesting user is a legitimate member of the conversation before retrieving or creating messages. Knowing a UUID does not permit unauthorized read or write access.
-- **WebSocket Handshake**: Validates JWT signature and expiration before upgrading socket connection.
+This document outlines the security controls, authentication mechanisms, session governance, and data protection policies implemented in **IndiChat**.
 
-## Data Protection & Transport
-- **Transport Layer**: Strict HTTPS and WSS in transit.
-- **DDoS / Rate Limiting**: Redis token-bucket rate limit on auth endpoints and message sending.
-- **Attachment Protection**: Object storage with pre-signed URLs, content-type verification, and file size limits.
-- **E2EE Roadmap**: Architecture leaves message payloads adaptable for client-side Signal protocol / Double Ratchet encryption in Phase 7.
+---
+
+## 1. Authentication & Identity Management
+
+### A. Password Hashing
+- User passwords are encrypted using the **BCrypt cryptographic hash function** with a logarithmic work factor of 12.
+- Plaintext passwords are never logged, serialized into DTOs, or persisted to disk.
+
+### B. Access & Refresh Tokens
+- **Access Tokens**: Short-lived JSON Web Tokens (JWT) signed with HMAC-SHA256 (`JWT_SECRET`). They encapsulate user identity and claims (`sub`, `roles`, `iat`, `exp`).
+- **Refresh Tokens**: Cryptographically random strings hashed via SHA-256 before storage in the `refresh_tokens` PostgreSQL table. This prevents token theft in the event of database exfiltration.
+- **Token Rotation**: Refresh tokens are single-use or time-bound; revoking a refresh token immediately invalidates session rejuvenation.
+
+### C. Passkeys (WebAuthn / FIDO2)
+- IndiChat supports Passkeys for cryptographic, biometric authentication.
+- Private keys reside in secure hardware enclaves on user devices, eliminating credential phishing risks.
+
+### D. Two-Factor Authentication (2FA PIN)
+- Users can enable Two-Factor Authentication in **Settings -> Two-Step Verification**.
+- When enabled, `POST /auth/login` issues a challenge response (`requiresTwoFactor: true`) until the verified PIN is supplied.
+
+---
+
+## 2. Multi-Device Sessions & Remote Revocation
+
+IndiChat implements proactive session monitoring and remote disconnection:
+
+1. **Device Identification**:
+   - Every login or link request captures `deviceId`, `deviceName`, `platform`, `browser`, and remote `ipAddress`.
+   - Records are persisted in `user_linked_devices`.
+2. **WebSocket Session Binding**:
+   - Active WebSocket connections map the socket session ID to both the `userId` and `deviceId`.
+3. **Instant Remote Disconnection**:
+   - When a user terminates an active device from settings (`DELETE /api/v1/devices/{deviceId}` or `/api/v1/devices/others`):
+   - The device record is deleted from PostgreSQL.
+   - The WebSocket handler locates the target device socket, sends `{ "type": "DEVICE_REMOVED", "payload": { "reason": "..." } }`, and forcefully closes the socket connection with code `4001`.
+   - Unauthorized subsequent reconnect attempts are rejected at the handshake level.
+
+---
+
+## 3. Resource Ownership & Access Authorization
+
+IndiChat enforces strict data isolation:
+- **Conversation Authorization**: Every REST endpoint (e.g. `GET /conversations/{id}/messages`) and WebSocket message dispatch validates that the authenticated `userId` belongs to `conversation_members` for that conversation.
+- **Knowledge of UUID is Insufficient**: Even if a malicious actor guesses or discovers a conversation UUID, queries are rejected with `403 Forbidden` unless legitimate membership exists.
+- **WebSocket Handshake Validation**: Handshakes validate the JWT token signature and expiration before upgrading the connection to WebSocket.
+
+---
+
+## 4. Network Security & Android Cleartext Policies
+
+### Local Development vs Production:
+- **Development**:
+  - The Android app requires `android:usesCleartextTraffic="true"` in `apps/mobile/android/app/src/main/AndroidManifest.xml` to allow communication with local development servers over HTTP (e.g. `http://192.168.0.70:8080` or emulator `http://10.0.2.2:8080`).
+- **Production**:
+  - All external traffic is routed over strict HTTPS and WSS (TLS 1.3).
+  - Cleartext traffic is disabled in production release configurations.
+
+### CORS Security:
+- Backend CORS configuration in `backend/src/main/resources/application.yml` restricts origins to approved web clients and development ports (`http://localhost:5173`, `http://localhost:5174`, `http://localhost:3000`, `http://localhost:8081`).
+
+---
+
+## 5. Media & Storage Security
+
+- **MinIO Object Isolation**: Media files are saved with randomized UUID filenames (`912ec803-b2ce-4f81-a836-9b88265a0b41`), preventing predictable resource enumeration.
+- **MIME Type Validation**: Files uploaded via `POST /api/v1/files/upload` are validated against approved MIME types and size limits (100MB maximum request size).
+- **Executable Protection**: Files categorized as executables or non-standard binaries are forced to `Content-Disposition: attachment` to protect clients from automatic browser execution.
