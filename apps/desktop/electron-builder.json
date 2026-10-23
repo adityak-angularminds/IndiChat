@@ -42,5 +42,10 @@
   "appImage": {
     "license": "../../LICENSE",
     "artifactName": "IndiChat-${version}.${ext}"
+  },
+  "win": {
+    "icon": "assets/icon.ico",
+    "target": ["nsis", "portable"],
+    "artifactName": "IndiChat-Setup-${version}.${ext}"
   }
 }

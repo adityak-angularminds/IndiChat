@@ -284,18 +284,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onAuthenticated }) => {
           <div>
             <div style={{ textAlign: 'center', padding: '28px 24px 16px 24px', background: 'linear-gradient(180deg, #182229 0%, #111b21 100%)' }}>
               <div style={{
-                width: '60px',
-                height: '60px',
-                borderRadius: '50%',
-                backgroundColor: '#00a884',
-                display: 'inline-flex',
+                width: '64px',
+                height: '64px',
+                margin: '0 auto 12px auto',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#111b21',
-                marginBottom: '12px',
-                boxShadow: '0 4px 16px rgba(0, 168, 132, 0.4)'
+                filter: 'drop-shadow(0 4px 14px rgba(0, 168, 132, 0.35))'
               }}>
-                <MessageSquare size={32} />
+                <img
+                  src="/logo-192.png"
+                  alt={APP_NAME}
+                  style={{ width: '64px', height: '64px', borderRadius: '16px', objectFit: 'contain' }}
+                />
               </div>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 {APP_NAME} Messenger

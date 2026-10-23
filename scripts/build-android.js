@@ -19,6 +19,16 @@ for (const folder of releaseFolders) {
   }
 }
 
+// Synchronize store and distribution graphics
+const androidIconSrc = path.join(rootDir, 'logo', 'android', 'icon-1024x1024.png');
+const playstoreSrc = path.join(rootDir, 'logo', 'android', 'playstore-512.png');
+if (fs.existsSync(androidIconSrc)) {
+  fs.copyFileSync(androidIconSrc, path.join(releaseAndroidDir, 'icon.png'));
+}
+if (fs.existsSync(playstoreSrc)) {
+  fs.copyFileSync(playstoreSrc, path.join(releaseAndroidDir, 'playstore-512.png'));
+}
+
 // Ensure Android SDK environment variables are set
 if (!process.env.ANDROID_HOME && !process.env.ANDROID_SDK_ROOT) {
   const localPropsPath = path.join(androidDir, 'local.properties');
