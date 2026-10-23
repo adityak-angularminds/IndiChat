@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -29,40 +29,179 @@ import { wsClient } from '../../services/websocket';
 import { storage, STORAGE_KEYS } from '../../services/storage';
 import { callHistoryService, CallHistoryItem } from '../../services/callHistory';
 import { generateUUID } from '../../utils/uuid';
-import { EMOJI_CATEGORIES } from '../../data/emojiData';
-import { GIF_CATEGORIES, searchGifsLocally, getGifsByCategory } from '../../data/gifData';
-import { STICKER_PACKS } from '../../data/stickerData';
+import { EMOJI_CATEGORIES, EmojiItem } from '../../data/emojiData';
+import {
+  GIF_CATEGORIES,
+  CURATED_GIFS,
+  GifItem,
+  searchGifsLocally,
+  getGifsByCategory,
+  fetchOnlineGifs,
+  getGiphyFallbacks,
+} from '../../data/gifData';
+import {
+  STICKER_PACKS,
+  StickerPack,
+  StickerItem,
+  searchStickers,
+} from '../../data/stickerData';
+import { StickerView } from '../../components/StickerView';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Emojis category tabs with icons
+const EMOJI_TAB_CATEGORIES = [
+  { id: 'recents', icon: '🕒', name: 'Recent' },
+  { id: 'smileys', icon: '😀', name: 'Smileys' },
+  { id: 'people', icon: '✋', name: 'People' },
+  { id: 'animals', icon: '🐶', name: 'Animals' },
+  { id: 'food', icon: '🍔', name: 'Food' },
+  { id: 'activities', icon: '⚽', name: 'Activities' },
+  { id: 'travel', icon: '✈️', name: 'Travel' },
+  { id: 'objects', icon: '💡', name: 'Objects' },
+  { id: 'symbols', icon: '🔣', name: 'Symbols' },
+  { id: 'flags', icon: '🚩', name: 'Flags' },
+];
+
+function isEmojiOnly(str: string): boolean {
+  if (!str) return false;
+  const trimmed = str.trim();
+  const emojiRegex = /^(?:[\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1FA70}-\u{1FAFF}]|[\u{200D}]|[\u{FE0E}]|[\u{FE0F}]|\s)+$/u;
+  const codePoints = Array.from(trimmed.replace(/\s+/g, ''));
+  return codePoints.length > 0 && codePoints.length <= 4 && emojiRegex.test(trimmed);
+}
+
 interface ParsedAttachment {
   fileId?: string;
-  fileName: string;
+  fileName?: string;
   fileType?: MessageType;
   mimeType?: string;
   fileSize?: number;
   fileUrl: string;
   caption?: string;
   isGif?: boolean;
+  isSticker?: boolean;
 }
 
-function parseAttachment(content: string): ParsedAttachment | null {
-  if (!content) return null;
-  try {
-    const data = JSON.parse(content);
-    if (data && typeof data === 'object' && (data.fileUrl || data.fileName)) {
-      return data as ParsedAttachment;
+function resolveMediaUrl(url?: string, baseUrl?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('/') && baseUrl) {
+    return `${baseUrl.replace(/\/+$/, '')}${trimmed}`;
+  }
+  return trimmed;
+}
+
+const GifMediaImage: React.FC<{
+  uri: string;
+  style?: any;
+  resizeMode?: 'cover' | 'contain';
+}> = ({ uri, style, resizeMode = 'cover' }) => {
+  const fallbacks = useMemo(() => getGiphyFallbacks(uri), [uri]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  const handleError = () => {
+    if (currentIdx + 1 < fallbacks.length) {
+      setCurrentIdx((prev) => prev + 1);
     }
-  } catch {}
-  if (content.startsWith('http') || content.startsWith('/api/') || content.startsWith('data:')) {
+  };
+
+  const currentSrc = fallbacks[currentIdx] || uri;
+
+  return (
+    <Image
+      source={{ uri: currentSrc }}
+      style={style}
+      resizeMode={resizeMode}
+      onError={handleError}
+    />
+  );
+};
+
+function parseAttachment(content: string): ParsedAttachment | null {
+  if (!content || typeof content !== 'string') return null;
+  const trimmed = content.trim();
+
+  // 1. Try JSON payload (including double-serialized strings)
+  if (trimmed.startsWith('{') || trimmed.startsWith('"{\\"')) {
+    try {
+      let data: any = JSON.parse(trimmed);
+      if (typeof data === 'string' && data.startsWith('{')) {
+        data = JSON.parse(data);
+      }
+      if (data && typeof data === 'object') {
+        const fileUrl = data.fileUrl || data.url || data.src || '';
+        const isStk =
+          data.isSticker === true ||
+          data.fileType === 'STICKER' ||
+          data.type === 'STICKER' ||
+          (typeof fileUrl === 'string' && (fileUrl.startsWith('data:image/svg') || fileUrl.includes('.svg')));
+        const isG =
+          data.isGif === true ||
+          data.fileType === 'GIF' ||
+          data.type === 'GIF' ||
+          (data.fileName && data.fileName.toLowerCase().endsWith('.gif')) ||
+          (typeof fileUrl === 'string' && (fileUrl.toLowerCase().includes('.gif') || fileUrl.includes('giphy') || fileUrl.includes('tenor')));
+
+        return {
+          fileUrl,
+          fileName: data.fileName || (isStk ? 'sticker.svg' : isG ? 'animation.gif' : 'attachment'),
+          fileType: isStk ? 'STICKER' : isG ? 'IMAGE' : data.fileType,
+          mimeType: data.mimeType,
+          fileSize: data.fileSize,
+          caption: data.caption,
+          isGif: isG,
+          isSticker: isStk,
+        };
+      }
+    } catch {}
+  }
+
+  // 2. Direct SVG XML string
+  if (trimmed.startsWith('<svg') || trimmed.startsWith('<?xml')) {
     return {
-      fileUrl: content,
-      fileName: 'attachment',
+      fileUrl: trimmed,
+      fileName: 'sticker.svg',
+      fileType: 'STICKER',
+      isSticker: true,
     };
   }
+
+  // 3. Direct SVG data URI
+  if (trimmed.startsWith('data:image/svg+xml')) {
+    return {
+      fileUrl: trimmed,
+      fileName: 'sticker.svg',
+      fileType: 'STICKER',
+      isSticker: true,
+    };
+  }
+
+  // 4. Direct URLs or relative API paths
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/api/') ||
+    trimmed.startsWith('data:')
+  ) {
+    const isStk = trimmed.toLowerCase().includes('.svg') || trimmed.startsWith('data:image/svg');
+    const isG =
+      trimmed.toLowerCase().includes('.gif') ||
+      trimmed.includes('giphy.com') ||
+      trimmed.includes('tenor.com');
+
+    return {
+      fileUrl: trimmed,
+      fileName: isStk ? 'sticker.svg' : isG ? 'animation.gif' : 'attachment',
+      fileType: isStk ? 'STICKER' : isG ? 'IMAGE' : undefined,
+      isGif: isG,
+      isSticker: isStk,
+    };
+  }
+
   return null;
 }
 
@@ -229,9 +368,108 @@ export default function ChatScreen() {
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [mediaPickerTab, setMediaPickerTab] = useState<'emoji' | 'gif' | 'sticker'>('emoji');
   const [selectedEmojiCategory, setSelectedEmojiCategory] = useState('smileys');
+  const [emojiSearchQuery, setEmojiSearchQuery] = useState('');
+  const [recentEmojis, setRecentEmojis] = useState<string[]>([
+    '😀', '😂', '😍', '👍', '❤️', '🔥', '🎉', '🙏', '💯', '✨', '👏', '🥳', '😎', '🙌', '🥰', '🚀'
+  ]);
   const [selectedGifCategory, setSelectedGifCategory] = useState('trending');
   const [gifSearchQuery, setGifSearchQuery] = useState('');
-  const [selectedStickerPack, setSelectedStickerPack] = useState(STICKER_PACKS[0]?.id || 'pack-reactions');
+  const [gifsList, setGifsList] = useState<GifItem[]>([]);
+  const [isSearchingGifs, setIsSearchingGifs] = useState(false);
+  const [selectedStickerPack, setSelectedStickerPack] = useState(STICKER_PACKS[0]?.id || 'reactions');
+  const [stickerSearchQuery, setStickerSearchQuery] = useState('');
+
+  // Filter emojis based on selected category or search query
+  const filteredEmojis = useMemo(() => {
+    const q = emojiSearchQuery.trim().toLowerCase();
+    if (!q) {
+      if (selectedEmojiCategory === 'recents') {
+        return recentEmojis.map((e) => ({ emoji: e, name: '', keywords: [] }));
+      }
+      return EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis || [];
+    }
+    const results: EmojiItem[] = [];
+    for (const cat of EMOJI_CATEGORIES) {
+      for (const item of cat.emojis) {
+        if (item.name.toLowerCase().includes(q) || item.keywords.some((k) => k.toLowerCase().includes(q))) {
+          results.push(item);
+        }
+      }
+    }
+    return results;
+  }, [emojiSearchQuery, selectedEmojiCategory, recentEmojis]);
+
+  // Filter stickers based on selected pack or search query
+  const activeStickerPackData = useMemo(() => {
+    const pack = STICKER_PACKS.find((p) => p.id === selectedStickerPack) || STICKER_PACKS[0];
+    if (!stickerSearchQuery.trim()) return pack?.stickers || [];
+    return searchStickers(stickerSearchQuery, pack?.stickers || []);
+  }, [selectedStickerPack, stickerSearchQuery]);
+
+  // Load / search GIFs globally from Google Tenor when category, query, or tab changes
+  useEffect(() => {
+    if (mediaPickerTab !== 'gif') return;
+    let active = true;
+    const query = gifSearchQuery.trim();
+
+    setIsSearchingGifs(true);
+    // Instant fetch for category switches, 250ms debounce while typing search queries
+    const delay = query ? 250 : 0;
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await fetchOnlineGifs(query, selectedGifCategory, apiBaseUrl);
+        if (active) {
+          setGifsList(results || []);
+        }
+      } catch {
+        if (active) {
+          setGifsList([]);
+        }
+      } finally {
+        if (active) setIsSearchingGifs(false);
+      }
+    }, delay);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [gifSearchQuery, selectedGifCategory, mediaPickerTab, apiBaseUrl]);
+
+  const handleSelectEmoji = (emoji: string) => {
+    setInputText((prev) => prev + emoji);
+    setRecentEmojis((prev) => [emoji, ...prev.filter((e) => e !== emoji)].slice(0, 32));
+  };
+
+  const handleEmojiBackspace = () => {
+    setInputText((prev) => {
+      const arr = Array.from(prev);
+      if (arr.length === 0) return '';
+      return arr.slice(0, -1).join('');
+    });
+  };
+
+  const handleSendGif = (gifUrl: string, title?: string) => {
+    const payload = JSON.stringify({
+      fileUrl: gifUrl,
+      fileName: title ? `${title}.gif` : 'animation.gif',
+      isGif: true,
+      caption: '',
+    });
+    handleSendMessage(payload, 'IMAGE');
+    setShowMediaPicker(false);
+  };
+
+  const handleSendSticker = (stickerUrl: string, name?: string) => {
+    const payload = JSON.stringify({
+      fileUrl: stickerUrl,
+      fileName: name || 'sticker.png',
+      isSticker: true,
+    });
+    handleSendMessage(payload, 'STICKER');
+    setShowMediaPicker(false);
+  };
 
   // Preview attachment before sending
   const [pendingFile, setPendingFile] = useState<{
@@ -886,24 +1124,48 @@ export default function ChatScreen() {
   const renderBubbleContent = (msg: Message) => {
     const parsed = parseAttachment(msg.content);
 
-    if (msg.type === 'IMAGE' || (parsed && parsed.fileType === 'IMAGE')) {
-      const imgUrl = parsed?.fileUrl || msg.content;
+    // 1. Sticker Message
+    const isSticker =
+      msg.type === 'STICKER' ||
+      parsed?.fileType === 'STICKER' ||
+      parsed?.isSticker === true;
+
+    if (isSticker) {
+      const stickerUrl = resolveMediaUrl(parsed?.fileUrl || msg.content, apiBaseUrl);
       return (
-        <View style={{ borderRadius: 8, overflow: 'hidden', marginVertical: 4 }}>
+        <View style={styles.stickerBubbleWrap}>
+          <StickerView uri={stickerUrl} size={140} baseUrl={apiBaseUrl} />
+        </View>
+      );
+    }
+
+    // 2. GIF or Image Message
+    const isGif = Boolean(
+      parsed?.isGif ||
+      (parsed as any)?.fileType === 'GIF' ||
+      (parsed?.fileName && parsed.fileName.toLowerCase().endsWith('.gif')) ||
+      (parsed?.fileUrl && parsed.fileUrl.toLowerCase().includes('.gif')) ||
+      (typeof msg.content === 'string' && (msg.content.includes('.gif') || msg.content.includes('giphy') || msg.content.includes('tenor')))
+    );
+
+    if (isGif || msg.type === 'IMAGE' || (parsed && parsed.fileType === 'IMAGE')) {
+      const rawUrl = parsed?.fileUrl || msg.content;
+      const imgUrl = resolveMediaUrl(rawUrl, apiBaseUrl);
+      return (
+        <View style={isGif ? styles.gifBubbleWrap : styles.imageBubbleWrap}>
           <TouchableOpacity
             activeOpacity={0.9}
-            onPress={() => setLightboxMedia({ url: imgUrl, caption: parsed?.caption, title: contactName })}
+            onPress={() => setLightboxMedia({ url: imgUrl, caption: parsed?.caption, title: isGif ? 'GIF' : contactName })}
           >
-            <Image source={{ uri: imgUrl }} style={styles.imageBubble} resizeMode="cover" />
+            <GifMediaImage uri={imgUrl} style={isGif ? styles.gifBubble : styles.imageBubble} resizeMode="cover" />
           </TouchableOpacity>
           {parsed?.caption ? <Text style={styles.messageText}>{parsed.caption}</Text> : null}
         </View>
       );
     }
 
-    if (msg.type === 'STICKER') {
-      return <Image source={{ uri: msg.content }} style={styles.stickerBubble} resizeMode="contain" />;
-    }
+    // 3. Emoji Only or Regular Text
+    const singleOrFewEmoji = isEmojiOnly(msg.content);
 
     return (
       <View>
@@ -920,7 +1182,9 @@ export default function ChatScreen() {
           </View>
         )}
 
-        <Text style={styles.messageText}>{msg.content}</Text>
+        <Text style={[styles.messageText, singleOrFewEmoji && styles.bigEmojiText]}>
+          {msg.content}
+        </Text>
       </View>
     );
   };
@@ -1025,6 +1289,21 @@ export default function ChatScreen() {
     );
 
     const isCallMessage = item.type === 'CALL' || parseCallContent(item.content) !== null;
+    const parsed = parseAttachment(item.content);
+    const isSticker =
+      item.type === 'STICKER' ||
+      parsed?.fileType === 'STICKER' ||
+      parsed?.isSticker === true;
+
+    const isGif = Boolean(
+      parsed?.isGif ||
+      (parsed as any)?.fileType === 'GIF' ||
+      (parsed?.fileName && parsed.fileName.toLowerCase().endsWith('.gif')) ||
+      (parsed?.fileUrl && parsed.fileUrl.toLowerCase().includes('.gif')) ||
+      (typeof item.content === 'string' && (item.content.includes('.gif') || item.content.includes('giphy') || item.content.includes('tenor')))
+    );
+
+    const isFrameless = isSticker || isGif;
 
     return (
       <View key={item.id || item.clientMessageId || `msg-${index}`}>
@@ -1045,12 +1324,18 @@ export default function ChatScreen() {
           {isCallMessage ? (
             renderCallBubble(item, isOutgoing, timeStr)
           ) : (
-            <View style={[styles.bubble, isOutgoing ? styles.outgoingBubble : styles.incomingBubble]}>
+            <View
+              style={[
+                styles.bubble,
+                isOutgoing ? styles.outgoingBubble : styles.incomingBubble,
+                isFrameless && styles.framelessBubbleContainer,
+              ]}
+            >
               {renderBubbleContent(item)}
 
               {/* Timestamp and Delivery Receipts */}
-              <View style={styles.metaRow}>
-                <Text style={styles.timeText}>{timeStr}</Text>
+              <View style={[styles.metaRow, isFrameless && styles.framelessMetaRow]}>
+                <Text style={[styles.timeText, isFrameless && styles.framelessTimeText]}>{timeStr}</Text>
                 {isOutgoing && (
                   <Ionicons
                     name={
@@ -1061,7 +1346,7 @@ export default function ChatScreen() {
                         : 'checkmark'
                     }
                     size={14}
-                    color={isRead ? '#53bdeb' : 'rgba(233, 237, 239, 0.6)'}
+                    color={isRead ? '#53bdeb' : isFrameless ? '#ffffff' : 'rgba(233, 237, 239, 0.6)'}
                   />
                 )}
               </View>
@@ -1176,7 +1461,7 @@ export default function ChatScreen() {
           <Ionicons name="add" size={28} color="#e9edef" />
         </TouchableOpacity>
 
-        {/* Center: Rounded Input Capsule with Sticker Icon */}
+        {/* Center: Rounded Input Capsule with Star / Sparkles Picker Button */}
         <View style={styles.inputCapsule}>
           <TextInput
             style={styles.messageInput}
@@ -1197,11 +1482,17 @@ export default function ChatScreen() {
             onPress={() => {
               if (!showMediaPicker) {
                 Keyboard.dismiss();
+                setShowMediaPicker(true);
+              } else {
+                setShowMediaPicker(false);
               }
-              setShowMediaPicker(!showMediaPicker);
             }}
           >
-            <Ionicons name="copy-outline" size={20} color="#8696a0" />
+            <Ionicons
+              name={showMediaPicker ? 'keypad-outline' : 'sparkles-outline'}
+              size={21}
+              color={showMediaPicker ? '#25D366' : '#8696a0'}
+            />
           </TouchableOpacity>
         </View>
 
@@ -1292,60 +1583,313 @@ export default function ChatScreen() {
 
       {/* Media / Sticker / Emoji Panel */}
       {showMediaPicker && (
-        <View style={styles.mediaPickerContainer}>
+        <View style={[styles.mediaPickerContainer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+          {/* Top Mode Navigation: Emoji | GIF | Sticker */}
           <View style={styles.pickerTabsRow}>
             <TouchableOpacity
               style={[styles.pickerTab, mediaPickerTab === 'emoji' && styles.pickerTabActive]}
               onPress={() => setMediaPickerTab('emoji')}
+              activeOpacity={0.7}
             >
-              <Text style={styles.pickerTabTitle}>😀 Emoji</Text>
+              <Ionicons
+                name="happy-outline"
+                size={19}
+                color={mediaPickerTab === 'emoji' ? '#25D366' : '#8696a0'}
+              />
+              <Text
+                style={[
+                  styles.pickerTabTitle,
+                  mediaPickerTab === 'emoji' && styles.pickerTabTitleActive,
+                ]}
+              >
+                Emoji
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.pickerTab, mediaPickerTab === 'gif' && styles.pickerTabActive]}
               onPress={() => setMediaPickerTab('gif')}
+              activeOpacity={0.7}
             >
-              <Text style={styles.pickerTabTitle}>🎞️ GIF</Text>
+              <Ionicons
+                name="film-outline"
+                size={19}
+                color={mediaPickerTab === 'gif' ? '#25D366' : '#8696a0'}
+              />
+              <Text
+                style={[
+                  styles.pickerTabTitle,
+                  mediaPickerTab === 'gif' && styles.pickerTabTitleActive,
+                ]}
+              >
+                GIF
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.pickerTab, mediaPickerTab === 'sticker' && styles.pickerTabActive]}
               onPress={() => setMediaPickerTab('sticker')}
+              activeOpacity={0.7}
             >
-              <Text style={styles.pickerTabTitle}>🏷️ Sticker</Text>
+              <Ionicons
+                name="sparkles-outline"
+                size={19}
+                color={mediaPickerTab === 'sticker' ? '#25D366' : '#8696a0'}
+              />
+              <Text
+                style={[
+                  styles.pickerTabTitle,
+                  mediaPickerTab === 'sticker' && styles.pickerTabTitleActive,
+                ]}
+              >
+                Stickers
+              </Text>
             </TouchableOpacity>
           </View>
 
+          {/* 1. EMOJI PANEL */}
           {mediaPickerTab === 'emoji' && (
-            <FlatList
-              data={EMOJI_CATEGORIES.find((c) => c.id === selectedEmojiCategory)?.emojis || []}
-              keyExtractor={(e, idx) => `${e.emoji}-${idx}`}
-              numColumns={8}
-              contentContainerStyle={{ padding: 8 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.emojiItem}
-                  onPress={() => setInputText((prev) => prev + item.emoji)}
-                >
-                  <Text style={{ fontSize: 26 }}>{item.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              {/* Emoji Search & Backspace Bar */}
+              <View style={styles.pickerSearchBarRow}>
+                <Ionicons name="search" size={17} color="#8696a0" />
+                <TextInput
+                  style={styles.pickerSearchInput}
+                  placeholder="Search emojis..."
+                  placeholderTextColor="#8696a0"
+                  value={emojiSearchQuery}
+                  onChangeText={setEmojiSearchQuery}
+                  autoCapitalize="none"
+                />
+                {emojiSearchQuery ? (
+                  <TouchableOpacity onPress={() => setEmojiSearchQuery('')}>
+                    <Ionicons name="close-circle" size={17} color="#8696a0" />
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity onPress={handleEmojiBackspace} style={{ paddingHorizontal: 4 }}>
+                  <Ionicons name="backspace-outline" size={22} color="#8696a0" />
                 </TouchableOpacity>
-              )}
-            />
+              </View>
+
+              {/* Emoji Categories Row */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.emojiCategoriesBar}
+                contentContainerStyle={styles.emojiCategoriesContent}
+              >
+                {EMOJI_TAB_CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.emojiCategoryTab,
+                      selectedEmojiCategory === cat.id && !emojiSearchQuery && styles.emojiCategoryTabActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedEmojiCategory(cat.id);
+                      setEmojiSearchQuery('');
+                    }}
+                  >
+                    <Text style={styles.emojiCategoryText}>{cat.icon}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Emoji Grid */}
+              <FlatList
+                data={filteredEmojis}
+                keyExtractor={(e, idx) => `${e.emoji}-${idx}`}
+                numColumns={8}
+                contentContainerStyle={{ padding: 6, paddingBottom: 16 }}
+                initialNumToRender={48}
+                maxToRenderPerBatch={48}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.emojiItem}
+                    activeOpacity={0.6}
+                    onPress={() => handleSelectEmoji(item.emoji)}
+                  >
+                    <Text style={styles.emojiText}>{item.emoji}</Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.pickerEmptyState}>
+                    <Text style={styles.pickerEmptyStateText}>No emojis found</Text>
+                  </View>
+                }
+              />
+            </View>
           )}
 
+          {/* 2. GIF PANEL */}
+          {mediaPickerTab === 'gif' && (
+            <View style={{ flex: 1 }}>
+              {/* GIF Search Bar */}
+              <View style={styles.pickerSearchBarRow}>
+                <Ionicons name="search" size={17} color="#8696a0" />
+                <TextInput
+                  style={styles.pickerSearchInput}
+                  placeholder="Search GIFs via GIPHY & Tenor..."
+                  placeholderTextColor="#8696a0"
+                  value={gifSearchQuery}
+                  onChangeText={setGifSearchQuery}
+                  autoCapitalize="none"
+                />
+                {isSearchingGifs ? (
+                  <ActivityIndicator size="small" color="#25D366" />
+                ) : gifSearchQuery ? (
+                  <TouchableOpacity onPress={() => setGifSearchQuery('')}>
+                    <Ionicons name="close-circle" size={17} color="#8696a0" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* GIF Categories Pills */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.gifCategoriesBar}
+                contentContainerStyle={styles.gifCategoriesContent}
+              >
+                {GIF_CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.gifCategoryPill,
+                      selectedGifCategory === cat.id && !gifSearchQuery && styles.gifCategoryPillActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedGifCategory(cat.id);
+                      setGifSearchQuery('');
+                    }}
+                  >
+                    <Text style={{ fontSize: 13 }}>{cat.icon}</Text>
+                    <Text
+                      style={[
+                        styles.gifCategoryPillText,
+                        selectedGifCategory === cat.id && !gifSearchQuery && styles.gifCategoryPillTextActive,
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* GIFs Grid */}
+              <FlatList
+                data={gifsList}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                contentContainerStyle={{ padding: 6, paddingBottom: 16 }}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.gifGridCard}
+                    activeOpacity={0.8}
+                    onPress={() => handleSendGif(item.url, item.title)}
+                  >
+                    <GifMediaImage uri={item.url} style={styles.gifGridImage} resizeMode="cover" />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.pickerEmptyState}>
+                    {isSearchingGifs ? (
+                      <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                        <ActivityIndicator size="small" color="#25D366" />
+                        <Text style={[styles.pickerEmptyStateText, { marginTop: 8 }]}>
+                          {gifSearchQuery.trim() ? `Searching GIPHY & Tenor for "${gifSearchQuery}"...` : 'Loading GIFs...'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.pickerEmptyStateText}>
+                        {gifSearchQuery.trim() ? `No GIFs found for "${gifSearchQuery}"` : 'No GIFs found'}
+                      </Text>
+                    )}
+                  </View>
+                }
+              />
+            </View>
+          )}
+
+          {/* 3. STICKER PANEL */}
           {mediaPickerTab === 'sticker' && (
-            <FlatList
-              data={STICKER_PACKS[0]?.stickers || []}
-              keyExtractor={(s) => s.id}
-              numColumns={4}
-              contentContainerStyle={{ padding: 8 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={{ flex: 1 / 4, aspectRatio: 1, padding: 6 }}
-                  onPress={() => handleSendMessage(item.url, 'STICKER')}
-                >
-                  <Image source={{ uri: item.url }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
-                </TouchableOpacity>
-              )}
-            />
+            <View style={{ flex: 1 }}>
+              {/* Sticker Search Bar */}
+              <View style={styles.pickerSearchBarRow}>
+                <Ionicons name="search" size={17} color="#8696a0" />
+                <TextInput
+                  style={styles.pickerSearchInput}
+                  placeholder="Search stickers..."
+                  placeholderTextColor="#8696a0"
+                  value={stickerSearchQuery}
+                  onChangeText={setStickerSearchQuery}
+                  autoCapitalize="none"
+                />
+                {stickerSearchQuery ? (
+                  <TouchableOpacity onPress={() => setStickerSearchQuery('')}>
+                    <Ionicons name="close-circle" size={17} color="#8696a0" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Sticker Packs Tabs */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.stickerPacksBar}
+                contentContainerStyle={styles.stickerPacksContent}
+              >
+                {STICKER_PACKS.map((pack) => (
+                  <TouchableOpacity
+                    key={pack.id}
+                    style={[
+                      styles.stickerPackTab,
+                      selectedStickerPack === pack.id && !stickerSearchQuery && styles.stickerPackTabActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedStickerPack(pack.id);
+                      setStickerSearchQuery('');
+                    }}
+                  >
+                    <Text style={{ fontSize: 13 }}>{pack.icon}</Text>
+                    <Text
+                      style={[
+                        styles.stickerPackTabText,
+                        selectedStickerPack === pack.id && !stickerSearchQuery && styles.stickerPackTabTextActive,
+                      ]}
+                    >
+                      {pack.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Stickers Grid with SvgXml vector rendering */}
+              <FlatList
+                data={activeStickerPackData}
+                keyExtractor={(s) => s.id}
+                numColumns={4}
+                contentContainerStyle={{ padding: 6, paddingBottom: 16 }}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.stickerGridCard}
+                    activeOpacity={0.7}
+                    onPress={() => handleSendSticker(item.url, item.name)}
+                  >
+                    <StickerView uri={item.url} size={66} />
+                    <Text style={styles.stickerCardName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.pickerEmptyState}>
+                    <Text style={styles.pickerEmptyStateText}>No stickers found</Text>
+                  </View>
+                }
+              />
+            </View>
           )}
         </View>
       )}
@@ -1558,6 +2102,29 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Lightbox Media Modal for GIFs & Photos */}
+      {lightboxMedia && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setLightboxMedia(null)}>
+          <View style={styles.lightboxOverlay}>
+            <View style={[styles.lightboxHeader, { paddingTop: insets.top + 8 }]}>
+              <TouchableOpacity style={styles.lightboxCloseBtn} onPress={() => setLightboxMedia(null)}>
+                <Ionicons name="close" size={28} color="#ffffff" />
+              </TouchableOpacity>
+              <Text style={styles.lightboxTitle} numberOfLines={1}>{lightboxMedia.title || 'Media'}</Text>
+              <View style={{ width: 40 }} />
+            </View>
+            <View style={styles.lightboxMediaBox}>
+              <Image source={{ uri: lightboxMedia.url }} style={styles.lightboxImage} resizeMode="contain" />
+            </View>
+            {lightboxMedia.caption ? (
+              <View style={[styles.lightboxCaptionBox, { paddingBottom: insets.bottom + 12 }]}>
+                <Text style={styles.lightboxCaptionText}>{lightboxMedia.caption}</Text>
+              </View>
+            ) : null}
           </View>
         </Modal>
       )}
@@ -1828,6 +2395,76 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
   },
+  bigEmojiText: {
+    fontSize: 38,
+    lineHeight: 46,
+    paddingVertical: 4,
+  },
+  stickerBubbleContainer: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderWidth: 0,
+  },
+  framelessBubbleContainer: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderWidth: 0,
+    borderRadius: 0,
+  },
+  stickerBubbleWrap: {
+    padding: 2,
+  },
+  gifBubbleWrap: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  gifBubble: {
+    width: 230,
+    height: 180,
+    borderRadius: 12,
+  },
+  imageBubbleWrap: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginVertical: 4,
+  },
+  framelessMetaRow: {
+    position: 'absolute',
+    bottom: 3,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 10,
+  },
+  framelessTimeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  stickerMetaRow: {
+    position: 'absolute',
+    bottom: 2,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  stickerTimeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  capsuleEmojiBtn: {
+    paddingRight: 8,
+    paddingLeft: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   bottomBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1848,7 +2485,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#1f2428',
     borderRadius: 22,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     minHeight: 44,
   },
   messageInput: {
@@ -1920,35 +2557,261 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mediaPickerContainer: {
-    height: 280,
-    backgroundColor: '#1f2428',
+    height: 360,
+    backgroundColor: '#161a1d',
     borderTopWidth: 1,
     borderTopColor: '#2b3036',
   },
   pickerTabsRow: {
     flexDirection: 'row',
+    height: 46,
     borderBottomWidth: 1,
     borderBottomColor: '#2b3036',
+    backgroundColor: '#121517',
   },
   pickerTab: {
     flex: 1,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 46,
   },
   pickerTabActive: {
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: '#25D366',
   },
   pickerTabTitle: {
-    color: '#e9edef',
-    fontSize: 13,
+    color: '#8696a0',
+    fontSize: 13.5,
     fontWeight: '600',
   },
+  pickerTabTitleActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  pickerSearchBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1f2428',
+    marginHorizontal: 10,
+    marginVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    height: 38,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#2b3036',
+  },
+  pickerSearchInput: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  emojiCategoriesBar: {
+    height: 44,
+    minHeight: 44,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2b3036',
+    backgroundColor: '#161a1d',
+  },
+  emojiCategoriesContent: {
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    height: 44,
+  },
+  emojiCategoryTab: {
+    height: 36,
+    paddingHorizontal: 10,
+    marginHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+  },
+  emojiCategoryTabActive: {
+    backgroundColor: '#2a3138',
+    borderBottomWidth: 2,
+    borderBottomColor: '#25D366',
+  },
+  emojiCategoryText: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
   emojiItem: {
-    width: SCREEN_WIDTH / 8 - 2,
+    width: SCREEN_WIDTH / 8,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiText: {
+    fontSize: 28,
+  },
+  gifCategoriesBar: {
+    height: 48,
+    minHeight: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2b3036',
+    backgroundColor: '#161a1d',
+  },
+  gifCategoriesContent: {
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    height: 48,
+  },
+  gifCategoryPill: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#20272c',
+    marginHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#2b3036',
+  },
+  gifCategoryPillActive: {
+    backgroundColor: '#00a884',
+    borderColor: '#25D366',
+  },
+  gifCategoryPillText: {
+    color: '#8696a0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  gifCategoryPillTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  gifGridCard: {
+    flex: 1,
+    margin: 4,
+    height: 110,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#2a3138',
+  },
+  gifGridImage: {
+    width: '100%',
+    height: '100%',
+  },
+  gifCardFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  gifCardTitle: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  stickerPacksBar: {
+    height: 50,
+    minHeight: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2b3036',
+    backgroundColor: '#161a1d',
+  },
+  stickerPacksContent: {
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    height: 50,
+  },
+  stickerPackTab: {
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    backgroundColor: '#20272c',
+    marginHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#2b3036',
+  },
+  stickerPackTabActive: {
+    backgroundColor: '#00a884',
+    borderColor: '#25D366',
+  },
+  stickerPackTabText: {
+    color: '#8696a0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  stickerPackTabTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  stickerGridCard: {
+    flex: 1 / 4,
+    aspectRatio: 1,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stickerCardName: {
+    color: '#8696a0',
+    fontSize: 9,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  pickerEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  pickerEmptyStateText: {
+    color: '#8696a0',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  lightboxOverlay: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  lightboxHeader: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  lightboxCloseBtn: {
+    width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lightboxTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  lightboxMediaBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '100%',
+  },
+  lightboxCaptionBox: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  lightboxCaptionText: {
+    color: '#ffffff',
+    fontSize: 15,
+    textAlign: 'center',
   },
   previewContainer: {
     flex: 1,

@@ -90,6 +90,78 @@ function MetaAiSwirlIcon() {
   );
 }
 
+function getSnippetInfo(msg?: any): {
+  snippet: string;
+  hasCameraIcon?: boolean;
+  hasVideoIcon?: boolean;
+  hasDocIcon?: boolean;
+} {
+  if (!msg) return { snippet: 'No messages yet' };
+
+  if (msg.type === 'STICKER') {
+    return { snippet: '🏷️ Sticker' };
+  }
+
+  let parsed: any = null;
+  if (typeof msg.content === 'string' && (msg.content.startsWith('{') || msg.content.startsWith('['))) {
+    try {
+      parsed = JSON.parse(msg.content);
+    } catch {
+      // not json
+    }
+  }
+
+  if (parsed?.isSticker || parsed?.fileType === 'STICKER') {
+    return { snippet: '🏷️ Sticker' };
+  }
+
+  if (
+    parsed?.isGif ||
+    parsed?.fileType === 'GIF' ||
+    parsed?.fileName?.toLowerCase().endsWith('.gif') ||
+    parsed?.fileUrl?.toLowerCase().includes('.gif') ||
+    (typeof msg.content === 'string' && (msg.content.includes('.gif') || msg.content.includes('giphy') || msg.content.includes('tenor')))
+  ) {
+    return { snippet: '🎞️ GIF' };
+  }
+
+  if (msg.type === 'IMAGE' || parsed?.fileType === 'IMAGE') {
+    const caption = parsed?.caption;
+    return {
+      snippet: caption ? `📷 ${caption}` : '📷 Photo',
+    };
+  }
+
+  if (msg.type === 'VIDEO' || parsed?.fileType === 'VIDEO') {
+    const caption = parsed?.caption;
+    return {
+      snippet: caption ? `🎥 ${caption}` : '🎥 Video',
+    };
+  }
+
+  if (msg.type === 'AUDIO' || parsed?.fileType === 'AUDIO') {
+    return { snippet: '🎵 Audio' };
+  }
+
+  if (msg.type === 'DOCUMENT' || parsed?.fileType === 'DOCUMENT') {
+    const fileName = parsed?.fileName || 'Document';
+    return {
+      snippet: `📄 ${fileName}`,
+    };
+  }
+
+  if (
+    typeof msg.content === 'string' &&
+    (msg.content.startsWith('data:image/svg+xml') ||
+      msg.content.startsWith('<svg') ||
+      msg.content.toLowerCase().endsWith('.svg'))
+  ) {
+    return { snippet: '🏷️ Sticker' };
+  }
+
+  return { snippet: msg.content || 'No messages yet' };
+}
+
 export default function ChatsScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -498,6 +570,8 @@ export default function ChatsScreen() {
             : date.toLocaleDateString([], { month: 'short', day: 'numeric' });
         }
 
+        const snippetInfo = getSnippetInfo(c.lastMessage);
+
         list.push({
           id: c.id,
           type: c.type,
@@ -508,7 +582,10 @@ export default function ChatsScreen() {
           timeStr,
           isUnreadTime: isUnread,
           unreadCount: c.unreadCount || 0,
-          snippet: c.lastMessage?.content || 'No messages yet',
+          snippet: snippetInfo.snippet,
+          hasCameraIcon: snippetInfo.hasCameraIcon,
+          hasVideoIcon: snippetInfo.hasVideoIcon,
+          hasDocIcon: snippetInfo.hasDocIcon,
           rawConversation: c,
         });
       });

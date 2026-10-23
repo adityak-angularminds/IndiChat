@@ -487,7 +487,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               alt={fileName}
               className="message-image-content"
             />
-            {isGif && <span className="message-gif-badge-pill">GIF</span>}
             <div className="message-image-overlay">
               <span className="view-fullscreen-hint">{isGif ? 'Click to view GIF' : 'Click to enlarge'}</span>
             </div>
@@ -707,6 +706,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           const isMedia = msg.type === 'IMAGE' || msg.type === 'VIDEO';
           const isSticker = msg.type === 'STICKER';
           const callData = parseCallContent(msg.content);
+          const att = parseAttachment(msg.content);
+          const isGif = Boolean(
+            att?.isGif ||
+            att?.fileName?.toLowerCase().endsWith('.gif') ||
+            att?.fileUrl?.toLowerCase().includes('.gif') ||
+            (typeof msg.content === 'string' && (msg.content.includes('.gif') || msg.content.includes('giphy') || msg.content.includes('tenor')))
+          );
           const isCall = msg.type === 'CALL' || Boolean(callData);
 
           const prevMsg = index > 0 ? messages[index - 1] : null;
@@ -723,14 +729,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               )}
 
               <div
-                className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isSticker ? 'has-sticker-row' : ''}`}
+                className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isSticker ? 'has-sticker-row' : ''} ${isGif ? 'has-gif-row' : ''}`}
               >
                 <div
                   className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'} ${
-                    isMedia ? 'has-media' : ''
+                    isMedia && !isGif ? 'has-media' : ''
                   } ${msg.type === 'DOCUMENT' ? 'has-document' : ''} ${
                     isSticker ? 'has-sticker' : ''
-                  } ${isCall ? 'has-call' : ''}`}
+                  } ${isGif ? 'has-gif' : ''} ${isCall ? 'has-call' : ''}`}
                   onClick={() => {
                     if (isCall && otherMember) {
                       onStartCall(otherMember.userId, callData?.callType === 'video');
