@@ -536,8 +536,11 @@ export const STICKER_PACKS: StickerPack[] = [
 
 export function getCustomStickers(): StickerItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_CUSTOM_STICKERS);
-    return raw ? JSON.parse(raw) : [];
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_CUSTOM_STICKERS);
+      return raw ? JSON.parse(raw) : [];
+    }
+    return [];
   } catch {
     return [];
   }
@@ -547,10 +550,12 @@ export function saveCustomSticker(sticker: StickerItem): StickerItem[] {
   try {
     const current = getCustomStickers();
     const updated = [sticker, ...current.filter((s) => s.id !== sticker.id)];
-    localStorage.setItem(STORAGE_CUSTOM_STICKERS, JSON.stringify(updated));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_CUSTOM_STICKERS, JSON.stringify(updated));
+    }
     return updated;
   } catch (e) {
-    console.error('Failed to save custom sticker to localStorage', e);
+    console.error('Failed to save custom sticker', e);
     return getCustomStickers();
   }
 }
@@ -559,7 +564,9 @@ export function deleteCustomSticker(stickerId: string): StickerItem[] {
   try {
     const current = getCustomStickers();
     const updated = current.filter((s) => s.id !== stickerId);
-    localStorage.setItem(STORAGE_CUSTOM_STICKERS, JSON.stringify(updated));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_CUSTOM_STICKERS, JSON.stringify(updated));
+    }
     return updated;
   } catch {
     return getCustomStickers();
@@ -568,8 +575,11 @@ export function deleteCustomSticker(stickerId: string): StickerItem[] {
 
 export function getStarredStickerIds(): string[] {
   try {
-    const raw = localStorage.getItem(STORAGE_STARRED_STICKERS);
-    return raw ? JSON.parse(raw) : ['stk-laugh-cry', 'stk-fire-lit', 'stk-cat-happy', 'stk-namaste'];
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_STARRED_STICKERS);
+      return raw ? JSON.parse(raw) : ['stk-laugh-cry', 'stk-fire-lit', 'stk-cat-happy', 'stk-namaste'];
+    }
+    return ['stk-laugh-cry', 'stk-fire-lit', 'stk-cat-happy', 'stk-namaste'];
   } catch {
     return ['stk-laugh-cry', 'stk-fire-lit', 'stk-cat-happy', 'stk-namaste'];
   }
@@ -580,7 +590,9 @@ export function toggleStarSticker(stickerId: string): string[] {
     const current = getStarredStickerIds();
     const exists = current.includes(stickerId);
     const updated = exists ? current.filter((id) => id !== stickerId) : [stickerId, ...current];
-    localStorage.setItem(STORAGE_STARRED_STICKERS, JSON.stringify(updated));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_STARRED_STICKERS, JSON.stringify(updated));
+    }
     return updated;
   } catch {
     return getStarredStickerIds();
@@ -589,8 +601,11 @@ export function toggleStarSticker(stickerId: string): string[] {
 
 export function getRecentStickerIds(): string[] {
   try {
-    const raw = localStorage.getItem(STORAGE_RECENT_STICKERS);
-    return raw ? JSON.parse(raw) : ['stk-laugh-cry', 'stk-cool-sunglasses', 'stk-heart-eyes', 'stk-namaste'];
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_RECENT_STICKERS);
+      return raw ? JSON.parse(raw) : ['stk-laugh-cry', 'stk-cool-sunglasses', 'stk-heart-eyes', 'stk-namaste'];
+    }
+    return ['stk-laugh-cry', 'stk-cool-sunglasses', 'stk-heart-eyes', 'stk-namaste'];
   } catch {
     return ['stk-laugh-cry', 'stk-cool-sunglasses', 'stk-heart-eyes', 'stk-namaste'];
   }
@@ -600,7 +615,9 @@ export function recordRecentSticker(stickerId: string): void {
   try {
     const current = getRecentStickerIds();
     const updated = [stickerId, ...current.filter((id) => id !== stickerId)].slice(0, 30);
-    localStorage.setItem(STORAGE_RECENT_STICKERS, JSON.stringify(updated));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_RECENT_STICKERS, JSON.stringify(updated));
+    }
   } catch {
     // Ignore quota issues
   }
