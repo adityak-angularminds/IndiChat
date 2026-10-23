@@ -2916,6 +2916,50 @@ html, body, #root {
   color: #53bdeb !important;
 }
 
+/* Borderless & Backgroundless GIF Messages */
+.message-bubble.has-gif {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 0 !important;
+  position: relative;
+}
+
+.message-bubble.has-gif .message-image-container {
+  border-radius: 12px;
+  overflow: hidden;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.message-bubble.has-gif .message-meta {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 12px;
+  padding: 2px 7px;
+  color: #ffffff !important;
+  font-size: 0.68rem;
+  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.message-bubble.has-gif .message-meta .message-time {
+  color: #ffffff !important;
+  font-weight: 500;
+}
+
+.message-bubble.has-gif .message-meta .receipt-icon {
+  color: #ffffff !important;
+}
+
+.message-bubble.has-gif .message-meta .receipt-icon.read {
+  color: #53bdeb !important;
+}
+
 /* GIF Message Badge in Image Bubble */
 .message-gif-badge-pill {
   position: absolute;
