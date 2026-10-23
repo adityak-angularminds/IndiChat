@@ -25,7 +25,9 @@ import {
   Clock,
   AlertCircle,
   Download,
-  Upload
+  Upload,
+  ArrowDownLeft,
+  ArrowUpRight
 } from 'lucide-react';
 
 interface ChatWindowProps {
@@ -75,6 +77,61 @@ function parseAttachment(content: string | any): ParsedAttachment | null {
   }
   return null;
 }
+
+interface CallPayload {
+  callType: 'voice' | 'video';
+  status: 'connected' | 'missed' | 'no_answer' | 'declined';
+  duration?: number;
+  durationText?: string;
+  endedAt?: string;
+}
+
+function parseCallContent(content: string | any): CallPayload | null {
+  if (!content) return null;
+  if (typeof content === 'object' && ('callType' in content || 'durationText' in content)) {
+    return content as CallPayload;
+  }
+  if (typeof content === 'string') {
+    try {
+      const data = JSON.parse(content);
+      if (data && typeof data === 'object' && ('callType' in data || 'durationText' in data)) {
+        return data as CallPayload;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function getDateSeparatorLabel(dateInput?: string | number | Date | null): string {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+  const timeMs = d.getTime();
+
+  if (timeMs >= startOfToday) {
+    return 'Today';
+  }
+  if (timeMs >= startOfYesterday && timeMs < startOfToday) {
+    return 'Yesterday';
+  }
+
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const weekday = weekdays[d.getDay()];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${weekday}, ${day} ${month}`;
+  }
+  return `${weekday}, ${day} ${month} ${d.getFullYear()}`;
+}
+
 
 /**
  * Resilient image and GIF component that automatically handles
@@ -526,6 +583,46 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       );
     }
 
+    // CALL message
+    const callData = parseCallContent(msg.content);
+    if (msg.type === 'CALL' || callData) {
+      const isVideo = callData?.callType === 'video';
+      const callTitle = isVideo ? 'Video call' : 'Voice call';
+      let callSubtitle = callData?.durationText || 'Voice call';
+      if (!callData?.durationText) {
+        if (callData?.status === 'no_answer') callSubtitle = 'No answer';
+        else if (callData?.status === 'missed') callSubtitle = 'Missed';
+        else if (callData?.status === 'declined') callSubtitle = 'Declined';
+        else if (callData?.duration && callData.duration > 0) {
+          callSubtitle = callData.duration < 60 ? `${callData.duration} sec` : `${Math.floor(callData.duration / 60)} min`;
+        }
+      }
+      const isOutgoing = msg.senderId === currentUser.id;
+      const isMissedOrDeclined = callData?.status === 'missed' || callData?.status === 'declined';
+
+      return (
+        <div className="web-call-bubble-content">
+          <div className={`web-call-icon-circle ${isOutgoing ? 'outgoing' : 'incoming'}`}>
+            {isVideo ? <Video size={18} /> : <Phone size={18} />}
+            <div className={`web-call-arrow-badge ${isOutgoing ? 'outgoing' : 'incoming'}`}>
+              {isOutgoing ? (
+                <ArrowUpRight size={10} color="#00a884" />
+              ) : (
+                <ArrowDownLeft size={10} color={isMissedOrDeclined ? '#f15c6d' : '#8696a0'} />
+              )}
+            </div>
+          </div>
+          <div className="web-call-details">
+            <span className="web-call-title">{callTitle}</span>
+            <span className="web-call-subtitle" style={!isOutgoing && isMissedOrDeclined ? { color: '#f15c6d' } : undefined}>
+              {callSubtitle}
+            </span>
+          </div>
+          <span className="web-call-time">{formatMessageTime(msg.createdAt)}</span>
+        </div>
+      );
+    }
+
     // Default TEXT message
     return <span className="message-text">{msg.content}</span>;
   };
@@ -605,37 +702,57 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Messages Scroll Area */}
       <div className="messages-container">
-        <div className="message-date-separator">TODAY</div>
-
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           const isOutgoing = msg.senderId === currentUser.id;
           const isMedia = msg.type === 'IMAGE' || msg.type === 'VIDEO';
           const isSticker = msg.type === 'STICKER';
+          const callData = parseCallContent(msg.content);
+          const isCall = msg.type === 'CALL' || Boolean(callData);
+
+          const prevMsg = index > 0 ? messages[index - 1] : null;
+          const currentDateLabel = msg.createdAt ? getDateSeparatorLabel(msg.createdAt) : null;
+          const prevDateLabel = prevMsg?.createdAt ? getDateSeparatorLabel(prevMsg.createdAt) : null;
+          const showDateSeparator = Boolean(
+            currentDateLabel && (!prevDateLabel || currentDateLabel !== prevDateLabel)
+          );
 
           return (
-            <div
-              key={msg.id || msg.clientMessageId}
-              className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isSticker ? 'has-sticker-row' : ''}`}
-            >
+            <React.Fragment key={msg.id || msg.clientMessageId || `msg-${index}`}>
+              {showDateSeparator && (
+                <div className="message-date-separator">{currentDateLabel}</div>
+              )}
+
               <div
-                className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'} ${
-                  isMedia ? 'has-media' : ''
-                } ${msg.type === 'DOCUMENT' ? 'has-document' : ''} ${
-                  isSticker ? 'has-sticker' : ''
-                }`}
+                className={`message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isSticker ? 'has-sticker-row' : ''}`}
               >
-                {!isOutgoing && conversation.type === 'GROUP' && (
-                  <div className="message-sender-name">
-                    {msg.sender?.displayName || msg.sender?.username}
-                  </div>
-                )}
-                {renderMessageContent(msg)}
-                <div className="message-meta">
-                  <span className="message-time">{formatMessageTime(msg.createdAt)}</span>
-                  {renderReceiptStatus(msg)}
+                <div
+                  className={`message-bubble ${isOutgoing ? 'outgoing' : 'incoming'} ${
+                    isMedia ? 'has-media' : ''
+                  } ${msg.type === 'DOCUMENT' ? 'has-document' : ''} ${
+                    isSticker ? 'has-sticker' : ''
+                  } ${isCall ? 'has-call' : ''}`}
+                  onClick={() => {
+                    if (isCall && otherMember) {
+                      onStartCall(otherMember.userId, callData?.callType === 'video');
+                    }
+                  }}
+                  title={isCall ? 'Click to call back' : undefined}
+                >
+                  {!isOutgoing && conversation.type === 'GROUP' && (
+                    <div className="message-sender-name">
+                      {msg.sender?.displayName || msg.sender?.username}
+                    </div>
+                  )}
+                  {renderMessageContent(msg)}
+                  {!isCall && (
+                    <div className="message-meta">
+                      <span className="message-time">{formatMessageTime(msg.createdAt)}</span>
+                      {renderReceiptStatus(msg)}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
         <div ref={messagesEndRef} />

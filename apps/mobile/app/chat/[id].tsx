@@ -14,6 +14,7 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ import {
 import { api, getApiBaseUrl } from '../../services/api';
 import { wsClient } from '../../services/websocket';
 import { storage, STORAGE_KEYS } from '../../services/storage';
+import { callHistoryService, CallHistoryItem } from '../../services/callHistory';
 import { generateUUID } from '../../utils/uuid';
 import { EMOJI_CATEGORIES } from '../../data/emojiData';
 import { GIF_CATEGORIES, searchGifsLocally, getGifsByCategory } from '../../data/gifData';
@@ -64,19 +66,159 @@ function parseAttachment(content: string): ParsedAttachment | null {
   return null;
 }
 
+interface CallPayload {
+  callType: 'voice' | 'video';
+  status: 'connected' | 'missed' | 'no_answer' | 'declined';
+  duration?: number;
+  durationText?: string;
+  endedAt?: string;
+}
+
+function parseCallContent(content: string): CallPayload | null {
+  if (!content) return null;
+  try {
+    const data = JSON.parse(content);
+    if (data && typeof data === 'object' && ('callType' in data || 'durationText' in data)) {
+      return data as CallPayload;
+    }
+  } catch {}
+  return null;
+}
+
+function getDateSeparatorLabel(dateInput?: string | number | Date | null): string {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+  const timeMs = d.getTime();
+
+  if (timeMs >= startOfToday) {
+    return 'Today';
+  }
+  if (timeMs >= startOfYesterday && timeMs < startOfToday) {
+    return 'Yesterday';
+  }
+
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const weekday = weekdays[d.getDay()];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${weekday}, ${day} ${month}`;
+  }
+  return `${weekday}, ${day} ${month} ${d.getFullYear()}`;
+}
+
+function parseDurationToSecs(text?: string): number {
+  if (!text) return 0;
+  let total = 0;
+  const minMatch = text.match(/(\d+)\s*min/);
+  const secMatch = text.match(/(\d+)\s*sec/);
+  if (minMatch) total += parseInt(minMatch[1], 10) * 60;
+  if (secMatch) total += parseInt(secMatch[1], 10);
+  return total;
+}
+
+function convertCallToMessage(
+  call: CallHistoryItem,
+  convId: string,
+  myUserId?: string
+): Message {
+  const isOutgoing = call.type === 'outgoing';
+  const durationSec = parseDurationToSecs(call.duration);
+
+  return {
+    id: call.id,
+    conversationId: convId,
+    senderId: isOutgoing ? (myUserId || 'current-user') : (call.targetUserId || 'other-user'),
+    clientMessageId: call.id,
+    type: 'CALL',
+    content: JSON.stringify({
+      callType: call.isVideo ? 'video' : 'voice',
+      status: call.type === 'missed' ? 'missed' : call.duration === 'No answer' ? 'no_answer' : 'connected',
+      duration: durationSec,
+      durationText: call.duration || call.subtitle || (call.type === 'missed' ? 'Missed' : 'Voice call'),
+      endedAt: new Date(call.timestamp).toISOString(),
+    }),
+    createdAt: new Date(call.timestamp).toISOString(),
+    receipts: [],
+    status: 'delivered',
+  };
+}
+
+function mergeMessagesWithCalls(
+  baseMsgs: Message[],
+  calls: CallHistoryItem[],
+  convId?: string,
+  targetId?: string | null,
+  cName?: string,
+  currentU?: User | null
+): Message[] {
+  const matchingCalls = calls.filter((c) => {
+    if (convId && c.conversationId && c.conversationId === convId) return true;
+    if (targetId && c.targetUserId && c.targetUserId === targetId) return true;
+    if (cName && c.contactName && c.contactName.trim().toLowerCase() === cName.trim().toLowerCase()) return true;
+    return false;
+  });
+
+  const callMsgs: Message[] = matchingCalls.map((c) =>
+    convertCallToMessage(c, convId || 'chat', currentU?.id)
+  );
+
+  const mergedMap = new Map<string, Message>();
+  baseMsgs.forEach((m) => {
+    mergedMap.set(m.id || m.clientMessageId || `msg-${m.createdAt}`, m);
+  });
+
+  callMsgs.forEach((cm) => {
+    const alreadyExists = baseMsgs.some(
+      (m) =>
+        m.id === cm.id ||
+        (m.type === 'CALL' && Math.abs(new Date(m.createdAt).getTime() - new Date(cm.createdAt).getTime()) < 5000)
+    );
+    if (!alreadyExists) {
+      mergedMap.set(cm.id, cm);
+    }
+  });
+
+  const result = Array.from(mergedMap.values());
+  result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  return result;
+}
+
+
+
 
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id: conversationId, name: queryName, type: queryType, unread: queryUnread } = useLocalSearchParams<{
+  const {
+    id: conversationId,
+    name: queryName,
+    type: queryType,
+    unread: queryUnread,
+    targetUserId: queryTargetUserId,
+    autoCall: queryAutoCall,
+    acceptedCall: queryAcceptedCall,
+  } = useLocalSearchParams<{
     id: string;
     name?: string;
     type?: string;
     unread?: string;
+    targetUserId?: string;
+    autoCall?: 'voice' | 'video';
+    acceptedCall?: 'voice' | 'video';
   }>();
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [targetUserId, setTargetUserId] = useState<string | null>(queryTargetUserId || null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -118,7 +260,47 @@ export default function ChatScreen() {
     isMuted: boolean;
   } | null>(null);
 
+  // Incoming call state in chat screen
+  const [incomingCall, setIncomingCall] = useState<{
+    senderUserId: string;
+    callerName: string;
+    isVideo: boolean;
+  } | null>(null);
+
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
+
   const flatListRef = useRef<FlatList>(null);
+  const hasAutoCalledRef = useRef(false);
+  const activeCallRef = useRef(activeCall);
+  activeCallRef.current = activeCall;
+  const incomingCallRef = useRef(incomingCall);
+  incomingCallRef.current = incomingCall;
+
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  // Auto-scroll and adjust bottom spacing when keyboard appears
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardOpen(true);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardOpen(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const contactName = queryName || 'Chat';
 
@@ -130,11 +312,12 @@ export default function ChatScreen() {
       const base = await getApiBaseUrl();
       setApiBaseUrl(base);
 
-      if (conversationId) {
+      let loadedMessages: Message[] = [];
+      if (conversationId && !conversationId.startsWith('c-')) {
         try {
           const res = await api.getMessages(conversationId);
           if (res.messages && res.messages.length > 0) {
-            setMessages(res.messages);
+            loadedMessages = res.messages;
 
             // Mark all unread incoming messages as seen
             res.messages.forEach((msg) => {
@@ -146,21 +329,71 @@ export default function ChatScreen() {
                 }
               }
             });
-          } else {
-            setMessages([]);
           }
         } catch (e) {
           console.warn('Failed to load backend messages:', e);
-          setMessages([]);
-        } finally {
-          setLoading(false);
         }
-      } else {
-        setMessages([]);
+
+        // If targetUserId is not yet set from query params, resolve it from messages or conversation members
+        if (!queryTargetUserId) {
+          if (loadedMessages.length > 0) {
+            const incomingMsg = loadedMessages.find((m: Message) => u && m.senderId !== u.id);
+            if (incomingMsg) {
+              setTargetUserId(incomingMsg.senderId);
+            }
+          }
+
+          api.getConversation(conversationId).then((conv) => {
+            if (conv && conv.members) {
+              const other = conv.members.find((m) => {
+                const mid = m.userId || m.user?.id;
+                const myId = u?.id;
+                return mid && myId && mid !== myId;
+              });
+              if (other) {
+                setTargetUserId(other.userId || other.user?.id || null);
+              }
+            }
+          }).catch(() => {});
+        }
+      }
+
+      // Merge backend messages with call history logs at their timestamp
+      try {
+        const history = await callHistoryService.getHistory();
+        const merged = mergeMessagesWithCalls(
+          loadedMessages,
+          history,
+          conversationId,
+          queryTargetUserId || null,
+          contactName,
+          u
+        );
+        setMessages(merged);
+      } catch (err) {
+        setMessages(loadedMessages);
+      } finally {
         setLoading(false);
       }
     })();
-  }, [conversationId]);
+  }, [conversationId, contactName, queryTargetUserId]);
+
+  // Keep chat thread in sync with call logs live
+  useEffect(() => {
+    const unsubHistory = callHistoryService.onHistoryChange((updatedCalls) => {
+      setMessages((prev) =>
+        mergeMessagesWithCalls(
+          prev,
+          updatedCalls,
+          conversationId,
+          targetUserId,
+          contactName,
+          currentUser
+        )
+      );
+    });
+    return () => unsubHistory();
+  }, [conversationId, targetUserId, contactName, currentUser]);
 
   // Mark incoming unread messages as read when viewing conversation
   useEffect(() => {
@@ -234,10 +467,55 @@ export default function ChatScreen() {
     });
 
     const unsubCall = wsClient.onCallSignal((signal) => {
-      if (signal.signalType === 'answer') {
+      if (signal.signalType === 'offer' && signal.senderUserId) {
+        const caller = (signal.data as any)?.callerName || contactName || 'Incoming Caller';
+        setIncomingCall({
+          senderUserId: signal.senderUserId,
+          callerName: caller,
+          isVideo: Boolean((signal.data as any)?.isVideo),
+        });
+      } else if (signal.signalType === 'answer') {
         setActiveCall((prev) => (prev ? { ...prev, status: 'connected' } : null));
       } else if (signal.signalType === 'hangup') {
+        const call = activeCallRef.current;
+        const incoming = incomingCallRef.current;
+        if (incoming) {
+          callHistoryService.addCall({
+            conversationId: conversationId || undefined,
+            contactName: incoming.callerName || contactName,
+            targetUserId: incoming.senderUserId,
+            isVideo: incoming.isVideo,
+            type: 'missed',
+            duration: 'Missed',
+            subtitle: 'Missed',
+          });
+        } else if (call) {
+          const isConnected = call.status === 'connected' && call.duration > 0;
+          let durationText: string;
+          if (isConnected) {
+            if (call.duration < 60) {
+              durationText = `${call.duration} sec`;
+            } else {
+              const mins = Math.floor(call.duration / 60);
+              const secs = call.duration % 60;
+              durationText = secs > 0 ? `${mins} min ${secs} sec` : `${mins} min`;
+            }
+          } else {
+            durationText = 'No answer';
+          }
+
+          callHistoryService.addCall({
+            conversationId: conversationId || undefined,
+            contactName: contactName || call.targetName,
+            targetUserId: targetUserId || undefined,
+            isVideo: call.isVideo,
+            type: isConnected ? 'incoming' : 'missed',
+            duration: durationText,
+            subtitle: durationText,
+          });
+        }
         setActiveCall(null);
+        setIncomingCall(null);
       }
     });
 
@@ -246,7 +524,28 @@ export default function ChatScreen() {
       unsubReceipt();
       unsubCall();
     };
-  }, [conversationId]);
+  }, [conversationId, contactName]);
+
+  // Handle accepted call passed from chats screen navigation
+  useEffect(() => {
+    if (queryAcceptedCall) {
+      setActiveCall({
+        targetName: contactName,
+        isVideo: queryAcceptedCall === 'video',
+        status: 'connected',
+        duration: 0,
+        isMuted: false,
+      });
+    }
+  }, [queryAcceptedCall, contactName]);
+
+  // Handle autoCall when entering from Calls tab or New Call contact modal
+  useEffect(() => {
+    if (queryAutoCall && targetUserId && !hasAutoCalledRef.current) {
+      hasAutoCalledRef.current = true;
+      handleStartCall(queryAutoCall === 'video');
+    }
+  }, [queryAutoCall, targetUserId]);
 
   // Call duration counter
   useEffect(() => {
@@ -435,6 +734,15 @@ export default function ChatScreen() {
   };
 
   const handleStartCall = (isVideo: boolean) => {
+    const effectiveTargetId =
+      targetUserId ||
+      (conversationId && !conversationId.startsWith('c-') ? conversationId : null);
+
+    if (!effectiveTargetId) {
+      Alert.alert('Unable to Call', 'Contact information is still loading. Please try again in a moment.');
+      return;
+    }
+
     setActiveCall({
       targetName: contactName,
       isVideo,
@@ -444,21 +752,119 @@ export default function ChatScreen() {
     });
 
     wsClient.sendCallSignal({
-      targetUserId: conversationId || '',
+      targetUserId: effectiveTargetId,
       signalType: 'offer',
-      data: { isVideo },
+      data: {
+        isVideo,
+        callerName: currentUser?.displayName || currentUser?.username || 'IndiChat User',
+      },
     });
   };
 
   const handleHangupCall = () => {
-    if (activeCall) {
+    const effectiveTargetId =
+      targetUserId ||
+      (conversationId && !conversationId.startsWith('c-') ? conversationId : null);
+    if (effectiveTargetId) {
       wsClient.sendCallSignal({
-        targetUserId: conversationId || '',
+        targetUserId: effectiveTargetId,
         signalType: 'hangup',
         data: {},
       });
-      setActiveCall(null);
     }
+
+    const currentCall = activeCallRef.current || activeCall;
+    if (currentCall) {
+      const isVoice = !currentCall.isVideo;
+      const isConnected = currentCall.status === 'connected' && currentCall.duration > 0;
+      let durationText: string;
+      if (isConnected) {
+        if (currentCall.duration < 60) {
+          durationText = `${currentCall.duration} sec`;
+        } else {
+          const mins = Math.floor(currentCall.duration / 60);
+          const secs = currentCall.duration % 60;
+          durationText = secs > 0 ? `${mins} min ${secs} sec` : `${mins} min`;
+        }
+      } else {
+        durationText = 'No answer';
+      }
+
+      const status = isConnected ? 'connected' : 'no_answer';
+
+      const callPayload = {
+        callType: isVoice ? 'voice' : 'video',
+        status,
+        duration: currentCall.duration,
+        durationText,
+        endedAt: new Date().toISOString(),
+      };
+
+      // 1. Post to chat thread as WhatsApp call bubble
+      handleSendMessage(JSON.stringify(callPayload), 'CALL');
+
+      // 2. Persist in call history logs
+      callHistoryService.addCall({
+        conversationId: conversationId || undefined,
+        contactName: contactName || currentCall.targetName,
+        targetUserId: effectiveTargetId || undefined,
+        isVideo: currentCall.isVideo,
+        type: 'outgoing',
+        duration: durationText,
+        subtitle: durationText,
+      });
+    }
+
+    setActiveCall(null);
+    setIncomingCall(null);
+  };
+
+  const handleAcceptIncomingCall = () => {
+    if (!incomingCall) return;
+    wsClient.sendCallSignal({
+      targetUserId: incomingCall.senderUserId,
+      signalType: 'answer',
+      data: {},
+    });
+    setTargetUserId(incomingCall.senderUserId);
+    setActiveCall({
+      targetName: incomingCall.callerName,
+      isVideo: incomingCall.isVideo,
+      status: 'connected',
+      duration: 0,
+      isMuted: false,
+    });
+    setIncomingCall(null);
+  };
+
+  const handleDeclineIncomingCall = () => {
+    if (!incomingCall) return;
+    wsClient.sendCallSignal({
+      targetUserId: incomingCall.senderUserId,
+      signalType: 'hangup',
+      data: {},
+    });
+
+    const callPayload = {
+      callType: incomingCall.isVideo ? 'video' : 'voice',
+      status: 'declined',
+      duration: 0,
+      durationText: 'Declined',
+      endedAt: new Date().toISOString(),
+    };
+    handleSendMessage(JSON.stringify(callPayload), 'CALL');
+
+    callHistoryService.addCall({
+      conversationId: conversationId || undefined,
+      contactName: incomingCall.callerName,
+      targetUserId: incomingCall.senderUserId,
+      isVideo: incomingCall.isVideo,
+      type: 'missed',
+      duration: 'Declined',
+      subtitle: 'Declined',
+    });
+
+    setIncomingCall(null);
   };
 
   const formatMessageTime = (isoString?: string) => {
@@ -519,39 +925,148 @@ export default function ChatScreen() {
     );
   };
 
-  const renderMessageItem = ({ item }: { item: Message }) => {
+  const renderCallBubble = (msg: Message, isOutgoing: boolean, timeStr: string) => {
+    const callData = parseCallContent(msg.content);
+    const isVideo = callData?.callType === 'video';
+    const callTitle = isVideo ? 'Video call' : 'Voice call';
+    let callSubtitle = callData?.durationText || 'Voice call';
+    if (!callData?.durationText) {
+      if (callData?.status === 'no_answer') callSubtitle = 'No answer';
+      else if (callData?.status === 'missed') callSubtitle = 'Missed';
+      else if (callData?.status === 'declined') callSubtitle = 'Declined';
+      else if (callData?.duration && callData.duration > 0) {
+        callSubtitle = callData.duration < 60 ? `${callData.duration} sec` : `${Math.floor(callData.duration / 60)} min`;
+      }
+    }
+
+    const isMissedOrDeclined = callData?.status === 'missed' || callData?.status === 'declined';
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => handleStartCall(isVideo)}
+        style={[
+          styles.callBubbleCard,
+          isOutgoing ? styles.callBubbleOutgoing : styles.callBubbleIncoming,
+        ]}
+      >
+        <View style={styles.callBubbleMainRow}>
+          {/* WhatsApp Circular Icon with directional arrow */}
+          <View
+            style={[
+              styles.callBubbleIconCircle,
+              isOutgoing ? styles.callBubbleIconCircleOut : styles.callBubbleIconCircleIn,
+            ]}
+          >
+            <Ionicons
+              name={isVideo ? 'videocam' : 'call'}
+              size={18}
+              color="#ffffff"
+            />
+            <View
+              style={[
+                styles.callBubbleArrowBadge,
+                isOutgoing ? styles.callBubbleArrowBadgeOut : styles.callBubbleArrowBadgeIn,
+              ]}
+            >
+              <Ionicons
+                name={isOutgoing ? 'arrow-up' : 'arrow-down'}
+                size={9}
+                color={isOutgoing ? '#25D366' : isMissedOrDeclined ? '#f15c6d' : '#8696a0'}
+                style={{
+                  transform: [{ rotate: isOutgoing ? '45deg' : '-45deg' }],
+                }}
+              />
+            </View>
+          </View>
+
+          {/* Call details */}
+          <View style={styles.callBubbleInfoCol}>
+            <Text style={styles.callBubbleTitle}>{callTitle}</Text>
+            <Text
+              style={[
+                styles.callBubbleSubtitle,
+                isOutgoing ? styles.callBubbleSubtitleOut : styles.callBubbleSubtitleIn,
+                !isOutgoing && isMissedOrDeclined && { color: '#f15c6d' },
+              ]}
+              numberOfLines={1}
+            >
+              {callSubtitle}
+            </Text>
+          </View>
+
+          {/* Timestamp */}
+          <View style={styles.callBubbleTimeCol}>
+            <Text
+              style={[
+                styles.callBubbleTimeText,
+                isOutgoing ? styles.callBubbleTimeTextOut : styles.callBubbleTimeTextIn,
+              ]}
+            >
+              {timeStr}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderMessageItem = ({ item, index }: { item: Message; index: number }) => {
     const isOutgoing = item.senderId === (currentUser?.id || 'current-user');
     const isRead = item.status === 'read' || item.receipts?.some((r) => r.readAt != null);
     const isDelivered = item.status === 'delivered' || item.receipts?.some((r) => r.deliveredAt != null);
     const timeStr = formatMessageTime(item.createdAt);
 
-    return (
-      <View
-        style={[
-          styles.bubbleWrapper,
-          isOutgoing ? styles.outgoingWrapper : styles.incomingWrapper,
-        ]}
-      >
-        <View style={[styles.bubble, isOutgoing ? styles.outgoingBubble : styles.incomingBubble]}>
-          {renderBubbleContent(item)}
+    const prevMsg = index > 0 ? messages[index - 1] : null;
+    const currentDateLabel = item.createdAt ? getDateSeparatorLabel(item.createdAt) : null;
+    const prevDateLabel = prevMsg?.createdAt ? getDateSeparatorLabel(prevMsg.createdAt) : null;
+    const showDateSeparator = Boolean(
+      currentDateLabel && (!prevDateLabel || currentDateLabel !== prevDateLabel)
+    );
 
-          {/* Timestamp and Delivery Receipts */}
-          <View style={styles.metaRow}>
-            <Text style={styles.timeText}>{timeStr}</Text>
-            {isOutgoing && (
-              <Ionicons
-                name={
-                  isRead || isDelivered
-                    ? 'checkmark-done'
-                    : item.status === 'sending'
-                    ? 'time-outline'
-                    : 'checkmark'
-                }
-                size={14}
-                color={isRead ? '#53bdeb' : 'rgba(233, 237, 239, 0.6)'}
-              />
-            )}
+    const isCallMessage = item.type === 'CALL' || parseCallContent(item.content) !== null;
+
+    return (
+      <View key={item.id || item.clientMessageId || `msg-${index}`}>
+        {showDateSeparator && (
+          <View style={styles.dateSeparatorWrap}>
+            <View style={styles.dateSeparatorPill}>
+              <Text style={styles.dateSeparatorText}>{currentDateLabel}</Text>
+            </View>
           </View>
+        )}
+
+        <View
+          style={[
+            styles.bubbleWrapper,
+            isOutgoing ? styles.outgoingWrapper : styles.incomingWrapper,
+          ]}
+        >
+          {isCallMessage ? (
+            renderCallBubble(item, isOutgoing, timeStr)
+          ) : (
+            <View style={[styles.bubble, isOutgoing ? styles.outgoingBubble : styles.incomingBubble]}>
+              {renderBubbleContent(item)}
+
+              {/* Timestamp and Delivery Receipts */}
+              <View style={styles.metaRow}>
+                <Text style={styles.timeText}>{timeStr}</Text>
+                {isOutgoing && (
+                  <Ionicons
+                    name={
+                      isRead || isDelivered
+                        ? 'checkmark-done'
+                        : item.status === 'sending'
+                        ? 'time-outline'
+                        : 'checkmark'
+                    }
+                    size={14}
+                    color={isRead ? '#53bdeb' : 'rgba(233, 237, 239, 0.6)'}
+                  />
+                )}
+              </View>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -560,7 +1075,7 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       {/* WhatsApp Exact Top Header */}
@@ -619,6 +1134,8 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id || item.clientMessageId || Math.random().toString()}
           renderItem={renderMessageItem}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           contentContainerStyle={[
             styles.messagesContent,
             messages.length === 0 && { flexGrow: 1, justifyContent: 'center' },
@@ -646,7 +1163,7 @@ export default function ChatScreen() {
         style={[
           styles.bottomBarRow,
           {
-            paddingBottom: Math.max(insets.bottom, 10),
+            paddingBottom: isKeyboardOpen ? 6 : Math.max(insets.bottom, 10),
           },
         ]}
       >
@@ -668,10 +1185,21 @@ export default function ChatScreen() {
             value={inputText}
             onChangeText={setInputText}
             multiline
+            onFocus={() => {
+              setShowMediaPicker(false);
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 150);
+            }}
           />
           <TouchableOpacity
             style={styles.stickerPageBtn}
-            onPress={() => setShowMediaPicker(!showMediaPicker)}
+            onPress={() => {
+              if (!showMediaPicker) {
+                Keyboard.dismiss();
+              }
+              setShowMediaPicker(!showMediaPicker);
+            }}
           >
             <Ionicons name="copy-outline" size={20} color="#8696a0" />
           </TouchableOpacity>
@@ -866,9 +1394,11 @@ export default function ChatScreen() {
       {activeCall && (
         <Modal visible animationType="slide">
           <View style={styles.callingOverlay}>
-            <View style={styles.callingTop}>
-              <View style={styles.callingAvatar}>
-                <Ionicons name="person" size={48} color="#25D366" />
+            {/* Top Bar with Security Badge & Contact Name */}
+            <View style={styles.callingTopHeader}>
+              <View style={styles.e2eePill}>
+                <Ionicons name="lock-closed" size={13} color="#25D366" />
+                <Text style={styles.e2eePillText}>End-to-end encrypted</Text>
               </View>
               <Text style={styles.callingTargetName}>{activeCall.targetName}</Text>
               <Text style={styles.callingStatusText}>
@@ -878,17 +1408,155 @@ export default function ChatScreen() {
               </Text>
             </View>
 
-            <View style={styles.callingControls}>
+            {/* Video Call Body vs Voice Call Body */}
+            {activeCall.isVideo ? (
+              <View style={styles.videoStreamContainer}>
+                {/* Remote Video Stream Simulation */}
+                <View style={styles.remoteVideoCanvas}>
+                  {!isVideoMuted ? (
+                    <View style={styles.remoteVideoActiveFeed}>
+                      <View style={styles.callingAvatarLarge}>
+                        <Text style={styles.callingAvatarInitials}>
+                          {activeCall.targetName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={styles.remoteVideoActiveLabel}>
+                        {activeCall.status === 'connected' ? 'Live Video Connected' : 'Connecting Video...'}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.videoOffPlaceholder}>
+                      <Ionicons name="videocam-off" size={48} color="#8696a0" />
+                      <Text style={{ color: '#8696a0', marginTop: 8, fontSize: 14 }}>Video Paused</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Self Picture-in-Picture Preview Window */}
+                <View style={styles.selfPipWindow}>
+                  <View style={styles.pipInner}>
+                    <Ionicons name="person" size={26} color="#53bdeb" />
+                    <Text style={styles.pipText}>You</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.pipFlipBtn}
+                    onPress={() => setIsFrontCamera((prev) => !prev)}
+                  >
+                    <Ionicons name="camera-reverse" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              /* Voice Call Concentric Waveform Avatar */
+              <View style={styles.voiceCallCenter}>
+                <View style={styles.callPulseOuter}>
+                  <View style={styles.callPulseMiddle}>
+                    <View style={styles.callingAvatar}>
+                      <Text style={styles.callingAvatarText}>
+                        {activeCall.targetName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Floating Glassmorphism Controls Dock */}
+            <View style={styles.callingControlsDock}>
+              {/* Speaker Toggle */}
               <TouchableOpacity
-                style={styles.callCtrlBtn}
-                onPress={() => setActiveCall((prev) => (prev ? { ...prev, isMuted: !prev.isMuted } : null))}
+                style={[styles.callCtrlBtn, isSpeakerOn && styles.callCtrlBtnActive]}
+                onPress={() => setIsSpeakerOn((prev) => !prev)}
               >
-                <Ionicons name={activeCall.isMuted ? 'mic-off' : 'mic'} size={26} color="#fff" />
+                <Ionicons
+                  name={isSpeakerOn ? 'volume-high' : 'volume-medium-outline'}
+                  size={24}
+                  color={isSpeakerOn ? '#000' : '#fff'}
+                />
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.callCtrlBtn, styles.hangupBtn]} onPress={handleHangupCall}>
-                <Ionicons name="call" size={30} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+              {/* Video Toggle / Upgrade to Video */}
+              <TouchableOpacity
+                style={[
+                  styles.callCtrlBtn,
+                  activeCall.isVideo && !isVideoMuted && styles.callCtrlBtnActive,
+                ]}
+                onPress={() => {
+                  if (activeCall.isVideo) {
+                    setIsVideoMuted((prev) => !prev);
+                  } else {
+                    setActiveCall((prev) => (prev ? { ...prev, isVideo: true } : null));
+                  }
+                }}
+              >
+                <Ionicons
+                  name={
+                    activeCall.isVideo
+                      ? isVideoMuted
+                        ? 'videocam-off'
+                        : 'videocam'
+                      : 'videocam-outline'
+                  }
+                  size={24}
+                  color={activeCall.isVideo && !isVideoMuted ? '#000' : '#fff'}
+                />
               </TouchableOpacity>
+
+              {/* Mic Mute Toggle */}
+              <TouchableOpacity
+                style={[styles.callCtrlBtn, activeCall.isMuted && styles.callCtrlBtnMuted]}
+                onPress={() => setActiveCall((prev) => (prev ? { ...prev, isMuted: !prev.isMuted } : null))}
+              >
+                <Ionicons
+                  name={activeCall.isMuted ? 'mic-off' : 'mic'}
+                  size={24}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+
+              {/* End Call Button */}
+              <TouchableOpacity style={styles.hangupCircleBtn} onPress={handleHangupCall}>
+                <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Incoming Call Modal in chat screen */}
+      {incomingCall && (
+        <Modal visible transparent animationType="slide">
+          <View style={styles.incomingModalOverlay}>
+            <View style={styles.incomingModalCard}>
+              <View style={styles.incomingModalAvatarCircle}>
+                <Ionicons
+                  name={incomingCall.isVideo ? 'videocam' : 'call'}
+                  size={32}
+                  color="#25D366"
+                />
+              </View>
+              <Text style={styles.incomingModalCallerName}>{incomingCall.callerName}</Text>
+              <Text style={styles.incomingModalCallType}>
+                WhatsApp {incomingCall.isVideo ? 'Video' : 'Voice'} Call...
+              </Text>
+
+              <View style={styles.incomingModalButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.incomingCircleBtn, styles.incomingDeclineBtn]}
+                  onPress={handleDeclineIncomingCall}
+                >
+                  <Ionicons name="call" size={24} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+                  <Text style={styles.incomingBtnLabel}>Decline</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.incomingCircleBtn, styles.incomingAcceptBtn]}
+                  onPress={handleAcceptIncomingCall}
+                >
+                  <Ionicons name="call" size={24} color="#fff" />
+                  <Text style={styles.incomingBtnLabel}>Accept</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -981,6 +1649,109 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 12,
     gap: 6,
+  },
+  dateSeparatorWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  dateSeparatorPill: {
+    backgroundColor: '#182229',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  dateSeparatorText: {
+    color: '#8696a0',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  callBubbleCard: {
+    minWidth: 205,
+    maxWidth: 250,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  callBubbleOutgoing: {
+    backgroundColor: '#005c4b',
+    borderTopRightRadius: 2,
+  },
+  callBubbleIncoming: {
+    backgroundColor: '#1f2c34',
+    borderTopLeftRadius: 2,
+  },
+  callBubbleMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  callBubbleIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 11,
+    position: 'relative',
+  },
+  callBubbleIconCircleOut: {
+    backgroundColor: '#004d40',
+  },
+  callBubbleIconCircleIn: {
+    backgroundColor: '#182229',
+  },
+  callBubbleArrowBadge: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callBubbleArrowBadgeOut: {
+    backgroundColor: '#00332c',
+  },
+  callBubbleArrowBadgeIn: {
+    backgroundColor: '#111b21',
+  },
+  callBubbleInfoCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  callBubbleTitle: {
+    color: '#ffffff',
+    fontSize: 15.5,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  callBubbleSubtitle: {
+    fontSize: 13,
+  },
+  callBubbleSubtitleOut: {
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
+  callBubbleSubtitleIn: {
+    color: '#8696a0',
+  },
+  callBubbleTimeCol: {
+    alignSelf: 'flex-end',
+    marginLeft: 8,
+  },
+  callBubbleTimeText: {
+    fontSize: 11,
+  },
+  callBubbleTimeTextOut: {
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  callBubbleTimeTextIn: {
+    color: 'rgba(233, 237, 239, 0.6)',
   },
   bubbleWrapper: {
     flexDirection: 'row',
@@ -1231,51 +2002,268 @@ const styles = StyleSheet.create({
   },
   callingOverlay: {
     flex: 1,
-    backgroundColor: '#0a0f13',
+    backgroundColor: '#0b141a',
     justifyContent: 'space-between',
-    paddingVertical: 60,
+    paddingTop: 56,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
-  callingTop: {
+  callingTopHeader: {
     alignItems: 'center',
+    width: '100%',
   },
-  callingAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#1f2428',
+  e2eePill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(31, 36, 40, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
     marginBottom: 16,
+  },
+  e2eePillText: {
+    color: '#8696a0',
+    fontSize: 12,
   },
   callingTargetName: {
     color: '#ffffff',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     marginBottom: 6,
   },
   callingStatusText: {
     color: '#25D366',
     fontSize: 15,
+    fontWeight: '500',
   },
-  callingControls: {
-    flexDirection: 'row',
+  videoStreamContainer: {
+    flex: 1,
+    width: '100%',
+    marginVertical: 20,
+    position: 'relative',
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  remoteVideoCanvas: {
+    flex: 1,
+    backgroundColor: '#111b21',
+    borderRadius: 18,
+    overflow: 'hidden',
     alignItems: 'center',
-    gap: 32,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  callCtrlBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#1f2428',
+  remoteVideoActiveFeed: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#182229',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hangupBtn: {
+  videoScanlineEffect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 168, 132, 0.04)',
+  },
+  callingAvatarLarge: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: '#202c33',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#00a884',
+    marginBottom: 14,
+  },
+  callingAvatarInitials: {
+    color: '#ffffff',
+    fontSize: 42,
+    fontWeight: '700',
+  },
+  remoteVideoActiveLabel: {
+    color: '#8696a0',
+    fontSize: 13,
+  },
+  videoOffPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selfPipWindow: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 96,
+    height: 128,
+    borderRadius: 12,
+    backgroundColor: '#202c33',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  pipInner: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pipText: {
+    color: '#8696a0',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  pipFlipBtn: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  voiceCallCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callPulseOuter: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(37, 211, 102, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callPulseMiddle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(37, 211, 102, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callingAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#202c33',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#25D366',
+  },
+  callingAvatarText: {
+    color: '#ffffff',
+    fontSize: 40,
+    fontWeight: '700',
+  },
+  callingControlsDock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    backgroundColor: '#1f2428',
+    borderRadius: 36,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  callCtrlBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#2a3942',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callCtrlBtnActive: {
+    backgroundColor: '#25D366',
+  },
+  callCtrlBtnMuted: {
     backgroundColor: '#f15c6d',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+  },
+  hangupCircleBtn: {
+    backgroundColor: '#f15c6d',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  incomingModalCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#1f2428',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  incomingModalAvatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#2a3942',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#25D366',
+  },
+  incomingModalCallerName: {
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  incomingModalCallType: {
+    color: '#8696a0',
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  incomingModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 36,
+    alignItems: 'center',
+  },
+  incomingCircleBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  incomingDeclineBtn: {
+    backgroundColor: '#f15c6d',
+  },
+  incomingAcceptBtn: {
+    backgroundColor: '#25D366',
+  },
+  incomingBtnLabel: {
+    color: '#fff',
+    fontSize: 11,
+    marginTop: 4,
+    position: 'absolute',
+    bottom: -20,
   },
   emptyMessagesContainer: {
     alignItems: 'center',

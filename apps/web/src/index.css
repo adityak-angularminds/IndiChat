@@ -776,11 +776,164 @@ html, body, #root {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform var(--transition-fast);
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
 }
 
 .btn-hangup:hover {
   transform: scale(1.1);
+  background-color: #d32f2f;
+}
+
+/* Video Calling Layout */
+.call-dialog-video {
+  position: relative;
+  width: 90vw;
+  max-width: 920px;
+  height: 80vh;
+  max-height: 620px;
+  background-color: #0c1317;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.call-remote-video-wrap {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.call-remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+
+.call-video-placeholder-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #182229 0%, #0a0f13 100%);
+  z-index: 0;
+}
+
+.call-local-pip {
+  position: absolute;
+  bottom: 84px;
+  right: 20px;
+  width: 180px;
+  height: 135px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: #111b21;
+  z-index: 3;
+}
+
+.call-local-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.call-pip-label {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.call-video-topbar {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.call-encryption-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(11, 20, 26, 0.75);
+  backdrop-filter: blur(6px);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  color: #8696a0;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.call-warning-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.2);
+  backdrop-filter: blur(6px);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.call-video-controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(17, 27, 33, 0.85);
+  backdrop-filter: blur(12px);
+  padding: 10px 20px;
+  border-radius: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  z-index: 4;
+}
+
+.call-ctrl-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.call-ctrl-btn:hover {
+  transform: scale(1.08);
 }
 
 /* Typing Bounce Animation */
@@ -3634,3 +3787,103 @@ html, body, #root {
 [data-font-size="large"] .chat-bubble {
   padding: 10px 14px !important;
 }
+
+/* WhatsApp Web Call Bubble Styling */
+.message-bubble.has-call {
+  min-width: 210px;
+  max-width: 260px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+
+.message-bubble.has-call:hover {
+  filter: brightness(1.05);
+}
+
+.message-bubble.has-call:active {
+  transform: scale(0.98);
+}
+
+.web-call-bubble-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.web-call-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.web-call-icon-circle.incoming {
+  background-color: #182229;
+  color: #ffffff;
+}
+
+.web-call-icon-circle.outgoing {
+  background-color: #004d40;
+  color: #ffffff;
+}
+
+.web-call-arrow-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.web-call-arrow-badge.incoming {
+  background-color: #111b21;
+}
+
+.web-call-arrow-badge.outgoing {
+  background-color: #00332c;
+}
+
+.web-call-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.web-call-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.web-call-subtitle {
+  font-size: 0.82rem;
+  color: #8696a0;
+}
+
+.message-bubble.outgoing .web-call-subtitle {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.web-call-time {
+  font-size: 0.72rem;
+  align-self: flex-end;
+  color: #8696a0;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.message-bubble.outgoing .web-call-time {
+  color: rgba(255, 255, 255, 0.65);
+}
+
