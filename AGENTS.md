@@ -13,9 +13,10 @@
 1. **Backend**: Java 21 & Spring Boot 3.4 modular service (REST APIs + native WebSocket server).
 2. **Web Frontend**: React 19 + TypeScript powered by Vite and Vanilla CSS design tokens.
 3. **Mobile Frontend**: React Native (0.86+) + Expo (52+) using Expo Router v4 with Android native prebuild and APK/AAB build automation.
-4. **Shared Types**: `@chat/shared-types` TypeScript package containing cross-platform contracts, DTOs, and WebSocket event payloads.
-5. **Infrastructure**: Docker Compose stack containing PostgreSQL 16 (port `5554`), Redis 7 (`6379`), and MinIO S3-compatible Object Storage (`9000`/`9001`).
-6. **Release Artifacts**: Automated build scripts that compile and store production release artifacts (`release/android/`, `release/ios/`, etc.).
+4. **Desktop Frontend**: Electron 33+ native Linux client with system tray, embedded proxy, and AppImage/deb/snap distribution.
+5. **Shared Types**: `@chat/shared-types` TypeScript package containing cross-platform contracts, DTOs, and WebSocket event payloads.
+6. **Infrastructure**: Docker Compose stack containing PostgreSQL 16 (port `5554`), Redis 7 (`6379`), and MinIO S3-compatible Object Storage (`9000`/`9001`).
+7. **Release Artifacts**: Automated build scripts that compile and store production release artifacts (`release/android/`, `release/linux/`, etc.).
 
 ---
 
