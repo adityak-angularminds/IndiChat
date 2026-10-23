@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo/original/icon-128x128.png" alt="IndiChat Logo" width="96" height="96" />
+</p>
+
 # IndiChat — Enterprise Real-Time Messaging Platform (Monorepo)
 
 [![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -231,6 +235,7 @@ Compiled Linux binaries and store manifests are stored in `release/linux/`:
 |---|---|
 | `npm run web:dev` | Launch Web client with Vite hot module replacement |
 | `npm run web:build` | Build production bundle for Web application |
+| `npm run sync:logos` | Synchronize platform logos across Web, Mobile, Desktop, and Release |
 | `npm run mobile:start` | Start Expo Metro bundler for mobile development |
 | `npm run mobile:android`| Compile and launch Android native development build |
 | `npm run mobile:ios` | Compile and launch iOS simulator build |

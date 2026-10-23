@@ -100,6 +100,12 @@ for (const item of assetsToCopy) {
   }
 }
 
+const hicolorSrc = path.join(desktopDir, 'assets', 'hicolor');
+const hicolorDest = path.join(releaseLinuxDir, 'hicolor');
+if (fs.existsSync(hicolorSrc)) {
+  fs.cpSync(hicolorSrc, hicolorDest, { recursive: true });
+}
+
 // 5. Run electron-builder for selected targets
 for (const target of targets) {
   runStep('npx', ['electron-builder', '--linux', target], desktopDir, `Building Linux ${target} package`);
