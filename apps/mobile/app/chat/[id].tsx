@@ -14,6 +14,7 @@ import {
   Alert,
   Dimensions,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -276,6 +277,30 @@ export default function ChatScreen() {
   activeCallRef.current = activeCall;
   const incomingCallRef = useRef(incomingCall);
   incomingCallRef.current = incomingCall;
+
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  // Auto-scroll and adjust bottom spacing when keyboard appears
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardOpen(true);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardOpen(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const contactName = queryName || 'Chat';
 
@@ -1050,7 +1075,7 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       {/* WhatsApp Exact Top Header */}
@@ -1109,6 +1134,8 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id || item.clientMessageId || Math.random().toString()}
           renderItem={renderMessageItem}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           contentContainerStyle={[
             styles.messagesContent,
             messages.length === 0 && { flexGrow: 1, justifyContent: 'center' },
@@ -1136,7 +1163,7 @@ export default function ChatScreen() {
         style={[
           styles.bottomBarRow,
           {
-            paddingBottom: Math.max(insets.bottom, 10),
+            paddingBottom: isKeyboardOpen ? 6 : Math.max(insets.bottom, 10),
           },
         ]}
       >
@@ -1158,10 +1185,21 @@ export default function ChatScreen() {
             value={inputText}
             onChangeText={setInputText}
             multiline
+            onFocus={() => {
+              setShowMediaPicker(false);
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 150);
+            }}
           />
           <TouchableOpacity
             style={styles.stickerPageBtn}
-            onPress={() => setShowMediaPicker(!showMediaPicker)}
+            onPress={() => {
+              if (!showMediaPicker) {
+                Keyboard.dismiss();
+              }
+              setShowMediaPicker(!showMediaPicker);
+            }}
           >
             <Ionicons name="copy-outline" size={20} color="#8696a0" />
           </TouchableOpacity>
