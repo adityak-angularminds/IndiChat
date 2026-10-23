@@ -22,7 +22,7 @@
 ## 2. Monorepo Structure & File Mapping
 
 ```
-/home/am-pc-16/Downloads/Chat/
+.
 ├── AGENTS.md                            # You are here — Developer guide for AI agents
 ├── README.md                            # Human-facing project overview & quickstart
 ├── docker-compose.yml                   # Postgres, Redis, MinIO, Backend, Web containers
