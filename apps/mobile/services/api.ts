@@ -25,7 +25,7 @@ export class ApiError extends Error {
 
 // Automatically deduce optimal default server URL based on runtime environment
 function getDefaultHost(): string {
-  // Expo debugger host usually has host:port (e.g. 192.168.1.3:8081)
+  // Expo debugger host usually has host:port (e.g. 192.168.0.70:8081)
   const debuggerHost = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
   if (debuggerHost && typeof debuggerHost === 'string') {
     const ip = debuggerHost.split(':')[0];
@@ -34,12 +34,8 @@ function getDefaultHost(): string {
     }
   }
 
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8080';
-  }
-
-  // Fallback to active LAN IP
-  return 'http://192.168.1.3:8080';
+  // Active host LAN IP for physical device and local network access
+  return 'http://192.168.0.70:8080';
 }
 
 let activeBaseUrl: string | null = null;
