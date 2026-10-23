@@ -15,6 +15,7 @@ import { storage, STORAGE_KEYS } from './storage';
 import { getDeviceDetails } from '../utils/device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { File as ExpoFile, UploadType } from 'expo-file-system';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -299,34 +300,94 @@ export const api = {
       method: 'DELETE',
     }),
 
-  // File Upload (supporting React Native { uri, name, type })
+  // File Upload (supporting captured camera photos, gallery images, documents, audio across React Native & Web)
   uploadFile: async (file: { uri: string; name: string; type: string }): Promise<FileUploadResponse> => {
     const baseUrl = await getApiBaseUrl();
     const token = await storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const uploadUrl = `${baseUrl}/api/v1/files/upload`;
 
-    const formData = new FormData();
-    formData.append('file', {
-      uri: file.uri,
-      name: file.name,
-      type: file.type || 'application/octet-stream',
-    } as any);
+    // 1. Native ExpoFile upload (fastest & most reliable on Android/iOS; completely bypasses fetch FormData conversion)
+    if (Platform.OS !== 'web') {
+      try {
+        const expoFile = new ExpoFile(file.uri);
+        if (typeof expoFile.upload === 'function') {
+          const uploadRes = await expoFile.upload(uploadUrl, {
+            uploadType: UploadType.MULTIPART,
+            fieldName: 'file',
+            mimeType: file.type || 'application/octet-stream',
+            headers,
+          });
 
-    const res = await fetch(`${baseUrl}/api/v1/files/upload`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
+          if (uploadRes.status >= 200 && uploadRes.status < 300) {
+            return JSON.parse(uploadRes.body) as FileUploadResponse;
+          }
+          let errorMsg = `Upload failed with status ${uploadRes.status}`;
+          try {
+            const data = JSON.parse(uploadRes.body);
+            if (data.message) errorMsg = data.message;
+          } catch {}
+          throw new ApiError(uploadRes.status, errorMsg);
+        }
+      } catch (nativeErr: any) {
+        if (nativeErr instanceof ApiError) throw nativeErr;
+        console.warn('Native ExpoFile upload failed, attempting Blob fallback:', nativeErr);
+      }
+    }
 
-    if (!res.ok) {
+    // 2. Blob-based upload (compatible with modern WinterCG Expo fetch and Web)
+    try {
+      const blobRes = await fetch(file.uri);
+      const blob = await blobRes.blob();
+      const formData = new FormData();
+      formData.append('file', blob, file.name);
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (res.ok) {
+        return await res.json();
+      }
+
       let errorMsg = `Upload failed: ${res.statusText}`;
       try {
         const data = await res.json();
         if (data.message) errorMsg = data.message;
       } catch {}
       throw new ApiError(res.status, errorMsg);
+    } catch (blobErr: any) {
+      if (blobErr instanceof ApiError) throw blobErr;
+      console.warn('Blob upload failed, attempting ExpoFile in FormData:', blobErr);
     }
 
-    return res.json();
+    // 3. Fallback: Wrap in ExpoFile and append to FormData (implements .bytes() for WinterCG)
+    try {
+      const expoFile = new ExpoFile(file.uri);
+      const formData = new FormData();
+      formData.append('file', expoFile as any);
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (res.ok) {
+        return await res.json();
+      }
+
+      let errorMsg = `Upload failed: ${res.statusText}`;
+      try {
+        const data = await res.json();
+        if (data.message) errorMsg = data.message;
+      } catch {}
+      throw new ApiError(res.status, errorMsg);
+    } catch (finalErr: any) {
+      if (finalErr instanceof ApiError) throw finalErr;
+      throw new ApiError(500, finalErr.message || 'File upload failed');
+    }
   },
 };
