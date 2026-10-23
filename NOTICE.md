@@ -2,7 +2,7 @@
 
 ## IndiChat Real-Time Messaging Platform
 
-**Copyright (c) 2024-2026 Aditya Kalambe**  
+**Copyright (c) 2026 Aditya Kalambe**  
 Author & Maintainer: **Aditya Kalambe**  
 GitHub Profile: [https://github.com/adityakalambe01](https://github.com/adityakalambe01)  
 Repository: [https://github.com/adityak-angularminds/IndiChat](https://github.com/adityak-angularminds/IndiChat)

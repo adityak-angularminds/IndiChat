@@ -234,4 +234,4 @@ Detailed architectural and technical guides are available in the [`docs/`](docs/
 
 - **License**: This project is licensed under the MIT License — see the [`LICENSE`](LICENSE) file for details.
 - **Third-Party Notices**: For complete third-party dependency licenses and trademark notices, see [`NOTICE.md`](NOTICE.md).
-- **Author & Copyright Holder**: [Aditya Kalambe](https://github.com/adityakalambe01) ([@adityakalambe01](https://github.com/adityakalambe01)) — Copyright © 2024–2026.
+- **Author & Copyright Holder**: [Aditya Kalambe](https://github.com/adityakalambe01) ([@adityakalambe01](https://github.com/adityakalambe01)) — Copyright © 2026.
