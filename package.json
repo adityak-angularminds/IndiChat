@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "IndiChat messaging platform monorepo (Web, Mobile, Backend)",
+  "author": "Aditya Kalambe (https://github.com/adityakalambe01)",
+  "license": "MIT",
 
   "workspaces": [
     "apps/*",
