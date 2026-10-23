@@ -280,25 +280,15 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
     const query = searchQuery.trim();
 
     if (query) {
-      if (fetchedGifQuery.toLowerCase() === query.toLowerCase() && onlineGifs.length > 0) {
-        return onlineGifs;
-      }
-      if (isSearchingGifs) {
-        return searchGifs(query);
-      }
-      return onlineGifs.length > 0 ? onlineGifs : searchGifs(query);
+      return onlineGifs;
     }
 
     if (activeGifCategory === 'recents') {
       return recentGifs;
     }
 
-    if (onlineGifs.length > 0) {
-      return onlineGifs;
-    }
-
-    return searchGifs('', activeGifCategory);
-  }, [activeMode, searchQuery, activeGifCategory, recentGifs, onlineGifs, fetchedGifQuery, isSearchingGifs]);
+    return onlineGifs;
+  }, [activeMode, searchQuery, onlineGifs, activeGifCategory, recentGifs]);
 
   // -------------------------------------------------------------
   // Sticker Selection & Management
