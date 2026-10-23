@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -189,7 +190,11 @@ export default function LoginScreen() {
           {/* Logo & Branding */}
           <View style={styles.logoContainer}>
             <View style={styles.logoBadge}>
-              <Ionicons name="chatbubbles" size={34} color="#111b21" />
+              <Image
+                source={require('../assets/icon.png')}
+                style={{ width: 68, height: 68, borderRadius: 18 }}
+                resizeMode="cover"
+              />
             </View>
             <Text style={styles.title}>IndiChat</Text>
             <Text style={styles.subtitle}>
