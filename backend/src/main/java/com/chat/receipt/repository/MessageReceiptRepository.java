@@ -20,6 +20,9 @@ public interface MessageReceiptRepository extends JpaRepository<MessageReceipt, 
 
     Optional<MessageReceipt> findByIdMessageIdAndIdUserId(UUID messageId, UUID userId);
 
+    @Query("SELECT r FROM MessageReceipt r JOIN FETCH r.message m JOIN FETCH m.conversation WHERE r.id.userId = :userId AND r.deliveredAt IS NULL")
+    List<MessageReceipt> findUndeliveredWithConversationForUser(@Param("userId") UUID userId);
+
     @Modifying
     @Query("UPDATE MessageReceipt r SET r.deliveredAt = :timestamp " +
            "WHERE r.id.messageId = :messageId AND r.id.userId = :userId AND r.deliveredAt IS NULL")

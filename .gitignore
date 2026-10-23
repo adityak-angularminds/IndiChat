@@ -26,3 +26,9 @@ coverage/
 
 # Uploaded media (local dev)
 uploads/
+
+# Release binary artifacts (built APK and AAB bundles)
+release/**/*.apk
+release/**/*.aab
+*.apk
+*.aab
