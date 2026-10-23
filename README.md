@@ -219,15 +219,19 @@ WebSocket connection endpoint: `ws://<host>:8080/ws?token=<jwt_token>`
 
 ## 📚 Technical Documentation Index
 
-Detailed architectural and technical guides are available in the [`docs/`](file:///home/am-pc-16/Downloads/Chat/docs/) directory:
-- 📖 **[AI Agent Operating Manual](file:///home/am-pc-16/Downloads/Chat/AGENTS.md)**: Rules, invariants, and guidelines for AI coding agents.
-- 📖 **[API Contracts & WebSocket Protocol](file:///home/am-pc-16/Downloads/Chat/docs/api-contracts.md)**: Full REST endpoints and WebSocket frames.
-- 📖 **[System Architecture](file:///home/am-pc-16/Downloads/Chat/docs/architecture.md)**: Monorepo diagram, real-time pipeline, and media flow.
-- 📖 **[Database Schema & Migrations](file:///home/am-pc-16/Downloads/Chat/docs/database-schema.md)**: Flyway migrations (V1–V4), table relationships, and indexes.
-- 📖 **[Security Architecture](file:///home/am-pc-16/Downloads/Chat/docs/security.md)**: Passkeys, 2FA PIN, device sessions, and Android network security.
-- 📖 **[Mobile & Android Build Guide](file:///home/am-pc-16/Downloads/Chat/docs/mobile-and-build-guide.md)**: Expo router, native prebuild, and APK automation.
+Detailed architectural and technical guides are available in the [`docs/`](docs/) directory:
+
+- 📖 **[AI Agent Operating Manual](AGENTS.md)**: Rules, invariants, and guidelines for AI coding agents.
+- 📖 **[API Contracts & WebSocket Protocol](docs/api-contracts.md)**: Full REST endpoints and WebSocket frames.
+- 📖 **[System Architecture](docs/architecture.md)**: Monorepo diagram, real-time pipeline, and media flow.
+- 📖 **[Database Schema & Migrations](docs/database-schema.md)**: Flyway migrations (V1–V4), table relationships, and indexes.
+- 📖 **[Security Architecture](docs/security.md)**: Passkeys, 2FA PIN, device sessions, and Android network security.
+- 📖 **[Mobile & Android Build Guide](docs/mobile-and-build-guide.md)**: Expo router, native prebuild, and APK automation.
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License — see the LICENSE file for details.
+## 📄 License & Attribution
+
+- **License**: This project is licensed under the MIT License — see the [`LICENSE`](LICENSE) file for details.
+- **Third-Party Notices**: For complete third-party dependency licenses and trademark notices, see [`NOTICE.md`](NOTICE.md).
+- **Author & Copyright Holder**: [Aditya Kalambe](https://github.com/adityakalambe01) ([@adityakalambe01](https://github.com/adityakalambe01)) — Copyright © 2026.
